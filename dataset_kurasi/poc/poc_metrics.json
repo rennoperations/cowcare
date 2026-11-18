@@ -1,0 +1,163 @@
+{
+  "pretrained": true,
+  "dedup": {
+    "original": 1165,
+    "removed": 27,
+    "clean": 1138
+  },
+  "splits": {
+    "train": 682,
+    "valid": 363,
+    "test": 93
+  },
+  "class_names": [
+    "kuku_sakit",
+    "kuku_sehat",
+    "mulut_sakit",
+    "mulut_sehat"
+  ],
+  "class_counts": {
+    "mulut_sakit": 485,
+    "kuku_sakit": 192,
+    "mulut_sehat": 239,
+    "kuku_sehat": 222
+  },
+  "valid": {
+    "n": 363,
+    "accuracy": 0.9366391184573003,
+    "macro_precision": 0.9186594202898551,
+    "macro_recall": 0.9573657474600872,
+    "macro_f1": 0.9328353464717102,
+    "per_class": {
+      "kuku_sakit": {
+        "precision": 0.7246376811594203,
+        "recall": 0.9615384615384616,
+        "f1": 0.8264462809917356,
+        "support": 52
+      },
+      "kuku_sehat": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 98
+      },
+      "mulut_sakit": {
+        "precision": 0.9857142857142858,
+        "recall": 0.8679245283018868,
+        "f1": 0.9230769230769231,
+        "support": 159
+      },
+      "mulut_sehat": {
+        "precision": 0.9642857142857143,
+        "recall": 1.0,
+        "f1": 0.9818181818181818,
+        "support": 54
+      }
+    },
+    "sick_recall_mean": 0.9147314949201741,
+    "false_negative_rate": 0.08526850507982586,
+    "confusion_matrix": [
+      [
+        50,
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        98,
+        0,
+        0
+      ],
+      [
+        19,
+        0,
+        138,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
+        54
+      ]
+    ],
+    "close_bbox_ge_8pct": {
+      "n": 173,
+      "accuracy": 0.8728323699421965
+    },
+    "wide_bbox_lt_8pct": {
+      "n": 190,
+      "accuracy": 0.9947368421052631
+    }
+  },
+  "test": {
+    "n": 93,
+    "accuracy": 0.967741935483871,
+    "macro_precision": 0.9375,
+    "macro_recall": 0.9829545454545454,
+    "macro_f1": 0.9554621848739496,
+    "per_class": {
+      "kuku_sakit": {
+        "precision": 0.75,
+        "recall": 1.0,
+        "f1": 0.8571428571428571,
+        "support": 9
+      },
+      "kuku_sehat": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 22
+      },
+      "mulut_sakit": {
+        "precision": 1.0,
+        "recall": 0.9318181818181818,
+        "f1": 0.9647058823529412,
+        "support": 44
+      },
+      "mulut_sehat": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 18
+      }
+    },
+    "sick_recall_mean": 0.9659090909090908,
+    "false_negative_rate": 0.03409090909090917,
+    "confusion_matrix": [
+      [
+        9,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        22,
+        0,
+        0
+      ],
+      [
+        3,
+        0,
+        41,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        18
+      ]
+    ],
+    "close_bbox_ge_8pct": {
+      "n": 44,
+      "accuracy": 0.9318181818181818
+    },
+    "wide_bbox_lt_8pct": {
+      "n": 49,
+      "accuracy": 1.0
+    }
+  }
+}

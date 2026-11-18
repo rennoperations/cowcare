@@ -1,0 +1,7 @@
+bagian,n_foto,K1_kesesuaian_klinis_30,K2_situs_anatomi_20,K3_stadium_20,K4_teknis_20,K5_lisensi_10,total,grade,putusan
+1_mulut_gusi_lidah,496,27,12,10,14,8,71,B,Layak setelah koreksi
+2_kaki,243,23,18,5,9,8,63,C,Kurasi berat
+3_puting,11,22,19,10,16,8,75,B,Mutu baik tetapi jumlah tidak layak kelas
+4_belum_diketahui,816,14,5,0,8,6,33,D,Olah ulang
+5_sehat,484,16,10,12,9,8,55,C,Hanya untuk kontrol negatif
+TERTIMBANG,2050,51.2,-,-,-,-,51,C,Belum siap latih
