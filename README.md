@@ -33,11 +33,11 @@ Versi web juga bisa dipublikasikan ke GitHub Pages lewat workflow `pages.yml` (a
 | `REVISI_DESAIN_3_Faktor_Terbesar_COWCARE.docx` | Desain terbaru hasil revisi dosen: 3 faktor terbesar |
 | `docs/` | LKP 3, LKP P4, LKP 5, LKP P6, PMK 3 Bab V, dan PPT (versi sebelum revisi) |
 | `wireframe/` | 3 wireframe Figma: Beranda, Periksa Sapi, Hasil |
-| `dataset_kurasi/` | Manifest, laporan audit standar WOAH/FAO-EuFMD, template pelabelan, contact sheet, dan PoC |
+| `dataset_kurasi/` | Manifest, laporan audit standar WOAH/FAO-EuFMD (`PENILAIAN_DATASET_COWCARE.md` + `penilaian_*.csv`), template pelabelan, contact sheet, dan PoC. Rinciannya di `dataset_kurasi/README.md` |
 
 ## Status desain (penting)
 
-Dosen meminta desain dipangkas menjadi **3 faktor terbesar** agar seimbang antara kecerdasan AI dan kemudahan peternak. Desain baru (3 faktor; bobot kini dari AHP berbasis literatur: lepuh terparah 57,1%, air liur 28,6%, jarak ≤ 10 km 14,3%, CR = 0, lihat `docs/AHP_Bobot_Faktor_PMK_CowCare.docx`; kuesioner 1 pertanyaan; maksimal 2 foto; model 8 kelas) dicatat di `REVISI_DESAIN_3_Faktor_Terbesar_COWCARE.docx` dan baru diterapkan pada LKP berikutnya. Dokumen di `docs/` masih desain lama (7 faktor, 13 kelas, kuesioner 5 langkah).
+Dosen meminta desain dipangkas menjadi **3 faktor terbesar** agar seimbang antara kecerdasan AI dan kemudahan peternak. Desain baru (3 faktor; bobot kini dari AHP berbasis literatur: lepuh terparah 57,1%, air liur 28,6%, jarak ≤ 10 km 14,3%, CR = 0, lihat `docs/AHP_Bobot_Faktor_PMK_CowCare.docx`; kuesioner 1 pertanyaan; maksimal 2 foto; model 8 kelas) dicatat di `REVISI_DESAIN_3_Faktor_Terbesar_COWCARE.docx` dan baru diterapkan pada LKP berikutnya. Dokumen di `docs/` masih desain lama (7 faktor, 13 kelas, kuesioner 5 langkah); template pelabelan di `dataset_kurasi/` (`KELAS_VALID.txt`, `labeling_template.csv`) juga masih memakai 13 kelas.
 
 ## Ringkasan PoC
 
@@ -46,21 +46,28 @@ MobileNetV2 4 kelas proxy (mulut sakit/sehat, kuku sakit/sehat) pada 1138 gambar
 | Split | Akurasi | Macro-F1 | Recall kelas sakit | FN |
 |---|---|---|---|---|
 | Validasi | 93,7% | 93,3% | 91,5% | 8,5% |
-| Uji | 96,8% | 95,6% | 96,6% | 3,4% |
+| Uji | 96,8% | 95,5% | 96,6% | 3,4% |
 
 Catatan: akurasi subgrup close-up lebih rendah (validasi 87,3%) dibanding wide shot (99,5%) karena bias framing foto sehat yang diambil jauh vs foto sakit close-up.
 
+Angka lengkap ada di `dataset_kurasi/poc/poc_metrics.json`; bobot model hasil latih ada di `dataset_kurasi/poc/mobilenetv2_fmd4.pt`.
+
 ## Menjalankan PoC
 
-Notebook `dataset_kurasi/poc/poc_fmd_mobilenetv2.ipynb` siap dipakai di Colab, atau:
+PoC memakai ekspor Roboflow `FMD.v1i.yolov8.zip`, yang tidak disimpan di repo.
+
+- **Colab:** buka notebook `dataset_kurasi/poc/poc_fmd_mobilenetv2.ipynb`, lalu unggah `FMD.v1i.yolov8.zip` saat diminta. Notebook hanya mencetak metrik di layar; tidak menyimpan `poc_metrics.json` maupun bobot model.
+- **Lokal:** skrip belum punya argumen baris perintah. Ubah dulu variabel `ROOT` di `dataset_kurasi/poc/poc_fmd_mobilenetv2.py` (bawaannya jalur Windows `D:\Documents\SEMESTER 5\PPKBP\LSH`) ke folder yang berisi `FMD.v1i.yolov8.zip` dan folder `dataset_kurasi/`, lalu:
 
 ```
-pip install torch torchvision scikit-learn opencv-python
-python dataset_kurasi/poc/poc_fmd_mobilenetv2.py --data <folder dataset>
+pip install torch torchvision scikit-learn numpy pillow
+python dataset_kurasi/poc/poc_fmd_mobilenetv2.py
 ```
+
+Skrip mengekstrak zip ke `dataset_kurasi/poc/data/` (diabaikan Git), lalu menulis ulang `poc_metrics.json` dan `mobilenetv2_fmd4.pt` di `dataset_kurasi/poc/`.
 
 ## Aturan dataset
 
 - Foto mentah tidak disimpan di repo (ukuran besar dan lisensi belum lengkap).
-- `manifest.csv` memuat sumber dan lisensi tiap foto; `penilaian_*.csv` memuat metrik kualitas per foto.
+- `dataset_kurasi/manifest.csv` memuat sumber tiap foto (tanpa kolom lisensi); lisensi per sumber ada di `dataset_kurasi/PENILAIAN_DATASET_COWCARE.md` bagian 6.4. `penilaian_metrik.csv` dan `penilaian_defek.csv` memuat metrik kualitas per foto, `penilaian_bagian.csv` rekap skor per bagian.
 - Foto dari GitHub Ashipunaz (179 foto) belum berlisensi: jangan disebarkan sebelum ada izin pemiliknya.
