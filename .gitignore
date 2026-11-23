@@ -4,3 +4,8 @@ __pycache__/
 Thumbs.db
 desktop.ini
 poc/data/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk

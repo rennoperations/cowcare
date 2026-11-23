@@ -1,0 +1,54 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "id.kelompok13.cowcare"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "id.kelompok13.cowcare"
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Untuk rilis Play Store, ganti dengan keystore kelompok (lihat android/README.md).
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir(layout.buildDirectory.dir("generated/webassets"))
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    androidResources {
+        // weights.bin sudah ringkas; jangan dikompres ulang agar cepat dibaca
+        noCompress "bin"
+    }
+}
+
+// Salin aplikasi web (folder ../web: antarmuka + model AI) ke dalam APK sebagai assets/www.
+// Service worker tidak dibawa karena semua berkas sudah ada di dalam APK.
+tasks.register("copyWebAssets", Copy) {
+    from(new File(rootDir, "../web"))
+    into(layout.buildDirectory.dir("generated/webassets/www"))
+    exclude("sw.js")
+}
+tasks.named("preBuild") { dependsOn("copyWebAssets") }
