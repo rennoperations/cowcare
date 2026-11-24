@@ -24,10 +24,12 @@ class D(Dataset):
     def __init__(s, r, tf): s.r, s.tf = r, tf
     def __len__(s): return len(s.r)
     def __getitem__(s, i): return s.tf(Image.open(s.r[i]['file']).convert('RGB')), NAMES.index(kelas(s.r[i]))
+# worker paralel hanya dengan fork (Linux); spawn (Windows/macOS) menjalankan ulang skrip tanpa guard __main__
+NW = 6 if torch.multiprocessing.get_start_method() == 'fork' else 0
 cnt = collections.Counter(kelas(r) for r in S['train'])
 w = [1.0 / cnt[kelas(r)] for r in S['train']]
-dl_tr = DataLoader(D(S['train'], ttf), batch_size=32, sampler=WeightedRandomSampler(w, len(w), replacement=True), num_workers=6)
-dl = {s: DataLoader(D(S[s], etf), batch_size=64, num_workers=6) for s in ['train', 'val', 'test']}
+dl_tr = DataLoader(D(S['train'], ttf), batch_size=32, sampler=WeightedRandomSampler(w, len(w), replacement=True), num_workers=NW)
+dl = {s: DataLoader(D(S[s], etf), batch_size=64, num_workers=NW) for s in ['train', 'val', 'test']}
 m = tv.models.mobilenet_v2(weights='IMAGENET1K_V1', dropout=0.4); m.classifier[1] = nn.Linear(1280, len(NAMES))
 def logits(loader):
     m.eval(); L, Y = [], []
@@ -50,6 +52,8 @@ def run(params, epochs, lr):
     global best
     for ep in range(epochs):
         m.train(); t = time.time(); tl = 0
+        for mod in m.features:  # blok beku: statistik BatchNorm juga dibekukan
+            if not any(p.requires_grad for p in mod.parameters()): mod.eval()
         for x, y in dl_tr:
             opt.zero_grad(); loss = nn.functional.cross_entropy(m(x), y, label_smoothing=0.05); loss.backward(); opt.step(); tl += loss.item()
         sch.step(); L, Y = logits(dl['val']); mv = metrics(L, Y); mt = metrics(*logits(dl['train']))
