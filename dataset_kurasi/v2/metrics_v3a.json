@@ -1,0 +1,322 @@
+{
+ "classes": [
+  "lesi",
+  "sehat",
+  "bukan_target"
+ ],
+ "split_counts": {
+  "train": {
+   "lesi": 437,
+   "bukan_target": 527,
+   "sehat": 125
+  },
+  "val": {
+   "lesi": 80,
+   "bukan_target": 69,
+   "sehat": 16
+  },
+  "test": {
+   "lesi": 80,
+   "bukan_target": 87,
+   "sehat": 21
+  }
+ },
+ "split_groups": {
+  "train": {
+   "bukan_target": 155,
+   "lesi": 163,
+   "sehat": 10
+  },
+  "val": {
+   "bukan_target": 60,
+   "lesi": 77,
+   "sehat": 1
+  },
+  "test": {
+   "bukan_target": 73,
+   "sehat": 5,
+   "lesi": 77
+  }
+ },
+ "temperature": 1.104,
+ "best_epoch": 9,
+ "history": [
+  {
+   "ep": 0,
+   "train_err": 0.385,
+   "val_err": 0.364,
+   "train_f1": 0.6,
+   "val_f1": 0.604
+  },
+  {
+   "ep": 1,
+   "train_err": 0.334,
+   "val_err": 0.364,
+   "train_f1": 0.649,
+   "val_f1": 0.612
+  },
+  {
+   "ep": 2,
+   "train_err": 0.359,
+   "val_err": 0.352,
+   "train_f1": 0.622,
+   "val_f1": 0.624
+  },
+  {
+   "ep": 3,
+   "train_err": 0.238,
+   "val_err": 0.358,
+   "train_f1": 0.778,
+   "val_f1": 0.562
+  },
+  {
+   "ep": 4,
+   "train_err": 0.164,
+   "val_err": 0.315,
+   "train_f1": 0.835,
+   "val_f1": 0.516
+  },
+  {
+   "ep": 5,
+   "train_err": 0.135,
+   "val_err": 0.285,
+   "train_f1": 0.876,
+   "val_f1": 0.538
+  },
+  {
+   "ep": 6,
+   "train_err": 0.102,
+   "val_err": 0.248,
+   "train_f1": 0.912,
+   "val_f1": 0.56
+  },
+  {
+   "ep": 7,
+   "train_err": 0.1,
+   "val_err": 0.2,
+   "train_f1": 0.908,
+   "val_f1": 0.595
+  },
+  {
+   "ep": 8,
+   "train_err": 0.074,
+   "val_err": 0.218,
+   "train_f1": 0.928,
+   "val_f1": 0.585
+  },
+  {
+   "ep": 9,
+   "train_err": 0.085,
+   "val_err": 0.188,
+   "train_f1": 0.911,
+   "val_f1": 0.71
+  },
+  {
+   "ep": 10,
+   "train_err": 0.068,
+   "val_err": 0.194,
+   "train_f1": 0.942,
+   "val_f1": 0.599
+  },
+  {
+   "ep": 11,
+   "train_err": 0.069,
+   "val_err": 0.182,
+   "train_f1": 0.937,
+   "val_f1": 0.575
+  },
+  {
+   "ep": 12,
+   "train_err": 0.066,
+   "val_err": 0.194,
+   "train_f1": 0.943,
+   "val_f1": 0.688
+  },
+  {
+   "ep": 13,
+   "train_err": 0.057,
+   "val_err": 0.164,
+   "train_f1": 0.952,
+   "val_f1": 0.623
+  },
+  {
+   "ep": 14,
+   "train_err": 0.062,
+   "val_err": 0.176,
+   "train_f1": 0.945,
+   "val_f1": 0.642
+  },
+  {
+   "ep": 15,
+   "train_err": 0.059,
+   "val_err": 0.218,
+   "train_f1": 0.947,
+   "val_f1": 0.551
+  },
+  {
+   "ep": 16,
+   "train_err": 0.051,
+   "val_err": 0.139,
+   "train_f1": 0.954,
+   "val_f1": 0.672
+  },
+  {
+   "ep": 17,
+   "train_err": 0.051,
+   "val_err": 0.182,
+   "train_f1": 0.953,
+   "val_f1": 0.61
+  },
+  {
+   "ep": 18,
+   "train_err": 0.048,
+   "val_err": 0.145,
+   "train_f1": 0.953,
+   "val_f1": 0.693
+  },
+  {
+   "ep": 19,
+   "train_err": 0.05,
+   "val_err": 0.17,
+   "train_f1": 0.957,
+   "val_f1": 0.582
+  }
+ ],
+ "train": {
+  "n": 1089,
+  "accuracy": 0.915,
+  "macro_f1": 0.911,
+  "recall": {
+   "lesi": 0.908,
+   "sehat": 1.0,
+   "bukan_target": 0.899
+  },
+  "precision": {
+   "lesi": 0.911,
+   "sehat": 0.817,
+   "bukan_target": 0.948
+  },
+  "ece": 0.05,
+  "confusion": [
+   [
+    397,
+    14,
+    26
+   ],
+   [
+    0,
+    125,
+    0
+   ],
+   [
+    39,
+    14,
+    474
+   ]
+  ]
+ },
+ "val": {
+  "n": 165,
+  "accuracy": 0.812,
+  "macro_f1": 0.71,
+  "recall": {
+   "lesi": 0.862,
+   "sehat": 0.375,
+   "bukan_target": 0.855
+  },
+  "precision": {
+   "lesi": 0.908,
+   "sehat": 0.545,
+   "bukan_target": 0.756
+  },
+  "ece": 0.051,
+  "confusion": [
+   [
+    69,
+    2,
+    9
+   ],
+   [
+    0,
+    6,
+    10
+   ],
+   [
+    7,
+    3,
+    59
+   ]
+  ]
+ },
+ "test": {
+  "n": 188,
+  "accuracy": 0.761,
+  "macro_f1": 0.676,
+  "recall": {
+   "lesi": 0.8,
+   "sehat": 0.429,
+   "bukan_target": 0.805
+  },
+  "precision": {
+   "lesi": 0.8,
+   "sehat": 0.409,
+   "bukan_target": 0.814
+  },
+  "ece": 0.07,
+  "confusion": [
+   [
+    64,
+    11,
+    5
+   ],
+   [
+    1,
+    9,
+    11
+   ],
+   [
+    15,
+    2,
+    70
+   ]
+  ]
+ },
+ "test_uncalibrated": {
+  "n": 188,
+  "accuracy": 0.761,
+  "macro_f1": 0.676,
+  "recall": {
+   "lesi": 0.8,
+   "sehat": 0.429,
+   "bukan_target": 0.805
+  },
+  "precision": {
+   "lesi": 0.8,
+   "sehat": 0.409,
+   "bukan_target": 0.814
+  },
+  "ece": 0.084,
+  "confusion": [
+   [
+    64,
+    11,
+    5
+   ],
+   [
+    1,
+    9,
+    11
+   ],
+   [
+    15,
+    2,
+    70
+   ]
+  ]
+ },
+ "synthetic": {
+  "n": 16,
+  "predicted_bukan_target": 16,
+  "max_lesion_conf": 0.066
+ }
+}
