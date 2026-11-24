@@ -518,7 +518,7 @@
       if (S.busy) h += '<div class="scan"></div><div class="scan-l"><span class="spinner"></span>' + (ai.ready ? "AI menganalisis foto di HP…" : "Menunggu model AI siap…") + '</div>';
       else if (data.ai && (data.ok || data.ai.band === "gagal")) {
         var st = badgeTone(data.ai);
-        h += '<span class="ai-tag st-' + st + '">' + ic("spark") + ' ' + (data.ai.band === "gagal" ? "Foto ditolak" : (data.ai.sakit ? "Tanda luka" : "Tidak tampak luka") + " · " + pct(data.ai.conf)) + '</span>';
+        h += '<span class="ai-tag st-' + st + '">' + ic("spark") + ' ' + (data.ai.band === "gagal" ? "Foto ditolak" : data.ai.band === "rendah" ? "AI tidak yakin" : (data.ai.sakit ? "Tanda luka" : "Tidak tampak luka") + " · " + pct(data.ai.conf)) + '</span>';
       }
     } else {
       h += '<span class="pi">' + ic(area === "mulut" ? "cow" : "hoof") + '</span><b style="color:var(--ink2)">Pratinjau foto ' + label + ' sapi</b>' +
@@ -592,7 +592,7 @@
   function confirmHtml(area) {
     var nama = area === "mulut" ? "mulut" : "kuku";
     return '<div class="card confirm" id="confirm"><h3>' + ic("help") + 'Apakah ini foto ' + nama + ' sapi?</h3>' +
-      '<p class="small muted">AI CowCare dilatih dengan foto mulut dan kuku sapi. AI bisa menolak sebagian foto lain, tetapi tidak selalu. Hasil AI ditampilkan setelah Anda memastikan.</p>' +
+      '<p class="small muted">AI CowCare dilatih dengan foto mulut dan kuku sapi. AI bisa menolak sebagian foto lain, tetapi tidak selalu. Bila foto tidak ditolak, hasil AI ditampilkan setelah Anda memastikan.</p>' +
       '<div class="row"><button class="btn primary" id="okYa">' + ic("check") + 'Ya, ' + nama + ' sapi</button>' +
       '<button class="btn" id="okTidak">' + ic("refresh") + 'Bukan, foto ulang</button></div></div>';
   }
