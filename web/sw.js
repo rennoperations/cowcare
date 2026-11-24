@@ -1,5 +1,7 @@
-/* Service worker: caches the app shell and the model so CowCare works offline after the first visit. */
-var CACHE = "cowcare-v1.0.2";
+/* Service worker: menyimpan aplikasi dan model AI supaya CowCare tetap jalan tanpa sinyal.
+   File aplikasi (html/js/css) diambil dari internet dulu bila ada sinyal, supaya pembaruan langsung terlihat;
+   bila tidak ada sinyal, dipakai salinan yang tersimpan. Model dan gambar langsung dari simpanan. */
+var CACHE = "cowcare-v1.0.3";
 var ASSETS = [
   "./", "index.html", "styles.css", "app.js", "scoring.js", "engine.js", "worker.js",
   "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
@@ -17,15 +19,28 @@ self.addEventListener("activate", function (e) {
   }).then(function () { return self.clients.claim(); }));
 });
 
+function simpan(req, res) {
+  if (res && res.ok && new URL(req.url).origin === self.location.origin) {
+    var copy = res.clone();
+    caches.open(CACHE).then(function (c) { c.put(req, copy); });
+  }
+  return res;
+}
+
 self.addEventListener("fetch", function (e) {
-  if (e.request.method !== "GET") return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) {
-    return hit || fetch(e.request).then(function (res) {
-      if (res && res.ok && new URL(e.request.url).origin === self.location.origin) {
-        var copy = res.clone();
-        caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
-      }
-      return res;
-    });
+  var req = e.request;
+  if (req.method !== "GET") return;
+  var url = new URL(req.url);
+  var kodeApp = req.mode === "navigate" || /\.(html|js|css|webmanifest)$/.test(url.pathname) || url.pathname.slice(-1) === "/";
+  if (kodeApp && url.origin === self.location.origin) {
+    // internet dulu, simpanan bila offline
+    e.respondWith(fetch(req, { cache: "no-cache" }).then(function (res) { return simpan(req, res); }).catch(function () {
+      return caches.match(req, { ignoreSearch: true }).then(function (hit) { return hit || caches.match("index.html"); });
+    }));
+    return;
+  }
+  // model dan gambar: simpanan dulu
+  e.respondWith(caches.match(req, { ignoreSearch: true }).then(function (hit) {
+    return hit || fetch(req).then(function (res) { return simpan(req, res); });
   }).catch(function () { return caches.match("index.html"); }));
 });
