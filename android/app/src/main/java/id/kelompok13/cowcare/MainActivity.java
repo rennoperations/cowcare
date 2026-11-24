@@ -42,7 +42,7 @@ public class MainActivity extends Activity {
     private static final int REQ_FILE = 41;
     private static final int REQ_SAVE = 42;
     private static final int MAX_FILE_CHARS = 20 * 1024 * 1024;
-    private String pendingSave;
+    private static final String PENDING_SAVE = "cadangan_tertunda.json";
 
     private WebView web;
     private ValueCallback<Uri[]> pendingChooser;
@@ -198,16 +198,22 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_SAVE) {
-            String content = pendingSave;
-            pendingSave = null;
+            // isi cadangan dibaca dari berkas privat agar tetap ada bila Activity dibuat ulang saat pemilih terbuka
+            File pending = new File(getCacheDir(), PENDING_SAVE);
             Uri dest = data == null ? null : data.getData();
-            if (resultCode != RESULT_OK || dest == null || content == null) return;
-            try (OutputStream out = getContentResolver().openOutputStream(dest)) {
-                if (out == null) throw new IOException("stream");
-                out.write(content.getBytes(StandardCharsets.UTF_8));
-                Toast.makeText(this, "Cadangan disimpan", Toast.LENGTH_SHORT).show();
-            } catch (IOException e) {
-                Toast.makeText(this, "Gagal menyimpan cadangan", Toast.LENGTH_LONG).show();
+            try {
+                if (resultCode != RESULT_OK || dest == null) return;
+                try (InputStream in = new java.io.FileInputStream(pending);
+                     OutputStream out = getContentResolver().openOutputStream(dest)) {
+                    if (out == null) throw new IOException("stream");
+                    byte[] buf = new byte[8192];
+                    for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
+                    Toast.makeText(this, "Cadangan disimpan", Toast.LENGTH_SHORT).show();
+                } catch (IOException e) {
+                    Toast.makeText(this, "Gagal menyimpan cadangan, coba unduh lagi", Toast.LENGTH_LONG).show();
+                }
+            } finally {
+                if (pending.exists() && !pending.delete()) pending.deleteOnExit();
             }
             return;
         }
@@ -257,10 +263,16 @@ public class MainActivity extends Activity {
                 save.addCategory(Intent.CATEGORY_OPENABLE);
                 save.setType(mime);
                 save.putExtra(Intent.EXTRA_TITLE, safe);
+                File pending = new File(getCacheDir(), PENDING_SAVE);
+                try (FileOutputStream out = new FileOutputStream(pending)) {
+                    out.write(content.getBytes(StandardCharsets.UTF_8));
+                } catch (IOException e) {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Gagal membuat berkas", Toast.LENGTH_LONG).show());
+                    return;
+                }
                 runOnUiThread(() -> {
-                    pendingSave = content;
                     try { startActivityForResult(save, REQ_SAVE); } catch (ActivityNotFoundException e) {
-                        pendingSave = null;
+                        pending.delete();
                         Toast.makeText(MainActivity.this, "Tidak ada aplikasi penyimpan berkas", Toast.LENGTH_LONG).show();
                     }
                 });
