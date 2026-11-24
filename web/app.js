@@ -46,8 +46,9 @@
     var arr = null; try { arr = JSON.parse(raw); } catch (e) {}
     var list = cleanList(arr);
     if (!Array.isArray(arr) || list.length !== arr.length) {
-      // salinan asli disimpan sekali agar data rusak masih bisa dipulihkan
-      try { if (localStorage.getItem("cowcare.riwayat_rusak") === null) localStorage.setItem("cowcare.riwayat_rusak", raw); } catch (e) {}
+      // hanya data yang ditolak yang disimpan sekali, agar masih bisa diperiksa; dihapus bersama riwayat
+      var ditolak = Array.isArray(arr) ? JSON.stringify(arr.filter(function (e) { return !cleanEntry(e); })) : raw;
+      try { if (localStorage.getItem("cowcare.riwayat_rusak") === null) localStorage.setItem("cowcare.riwayat_rusak", ditolak); } catch (e) {}
       if (!rusakDiberitahu) { rusakDiberitahu = true; setTimeout(function () { toast("Sebagian data riwayat rusak dan dilewati", "err"); }, 0); }
     }
     return list;
@@ -1013,7 +1014,7 @@
       if (tt) tt.onclick = function () { var t = store.get("vetTel", ""); if (Android && Android.dial) Android.dial(t); else location.href = "tel:" + t.replace(/[^0-9+]/g, ""); };
       if (focusTel) { focusTel = false; setTimeout(function () { inp.scrollIntoView({ behavior: "smooth", block: "center" }); inp.focus(); }, 350); }
       function toggleSimpan() {
-        if (consent() === "setuju") { memHistory = readHistory(); store.del("riwayat"); store.set("consent", "tolak"); toast("Riwayat dipindah ke memori saja", "info"); }
+        if (consent() === "setuju") { memHistory = readHistory(); store.del("riwayat"); store.del("riwayat_rusak"); store.set("consent", "tolak"); toast("Riwayat dipindah ke memori saja", "info"); }
         else if (!store.set("riwayat", memHistory)) toast("Memori HP penuh. Riwayat tetap di memori; unduh cadangan atau hapus sebagian data.", "err");
         else if (!store.set("consent", "setuju")) { store.del("riwayat"); toast("Memori HP penuh, penyimpanan tidak dapat diaktifkan", "err"); }
         else toast("Riwayat kini disimpan di HP");
@@ -1024,7 +1025,7 @@
       $("#tgWrap").onclick = toggleSimpan;
       $("#cadang").onclick = exportBackup;
       $("#pulih").onclick = function () { var fi = $("#fileJson"); fi.value = ""; fi.click(); };
-      twoTap($("#hapus"), "Tekan lagi untuk menghapus semua", function () { store.del("riwayat"); memHistory = []; toast("Seluruh riwayat dihapus"); viewInfo(); });
+      twoTap($("#hapus"), "Tekan lagi untuk menghapus semua", function () { store.del("riwayat"); store.del("riwayat_rusak"); memHistory = []; toast("Seluruh riwayat dihapus"); viewInfo(); });
     });
   }
 
