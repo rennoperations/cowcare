@@ -5,9 +5,17 @@ import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
+import android.graphics.Color;
+import android.graphics.Insets;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
+import android.view.Gravity;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.View;
+import android.view.WindowInsets;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -16,6 +24,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import java.io.File;
@@ -68,7 +77,11 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         web = new WebView(this);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        setContentView(web);
+        FrameLayout root = new FrameLayout(this);
+        root.addView(web, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(root);
+        applySystemBarInsets(root);
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -86,6 +99,24 @@ public class MainActivity extends Activity {
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl(START_URL);
+    }
+
+    /** Android 15+ selalu edge-to-edge: geser WebView agar tidak tertutup status bar, navigasi, dan keyboard. */
+    private void applySystemBarInsets(View root) {
+        if (Build.VERSION.SDK_INT < 35) return;
+        // latar hijau di bawah status bar, warna latar aplikasi di bawah bar navigasi
+        LayerDrawable bg = new LayerDrawable(new Drawable[]{
+                new ColorDrawable(Color.parseColor("#f4f6f2")),
+                new ColorDrawable(Color.parseColor("#1f4d24"))});
+        bg.setLayerGravity(1, Gravity.TOP | Gravity.FILL_HORIZONTAL);
+        root.setBackground(bg);
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            Insets ime = insets.getInsets(WindowInsets.Type.ime());
+            bg.setLayerHeight(1, bars.top);
+            v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+            return WindowInsets.CONSUMED;
+        });
     }
 
     @Override
