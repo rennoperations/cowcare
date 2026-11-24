@@ -4,7 +4,7 @@
   --r700: #b42a1d; --r600: #d13a2b; --r100: #fde4e0; --r50: #fff3f1;
   --y700: #8a5a09; --y600: #d0880f; --y100: #fdf0d2; --y50: #fff9ea;
   --b100: #e6eff7; --b700: #285a86;
-  --ink: #17221b; --ink2: #4c5a51; --ink3: #7b877f; --line: #e2e7e2; --bg: #f4f6f2; --card: #fff;
+  --ink: #17221b; --ink2: #4c5a51; --ink3: #5f6b63; --line: #e2e7e2; --bg: #f4f6f2; --card: #fff;
   --radius: 20px; --radius-s: 14px;
   --shadow-1: 0 1px 2px rgba(18,53,27,.06), 0 2px 8px rgba(18,53,27,.05);
   --shadow-2: 0 6px 24px rgba(18,53,27,.12);
@@ -421,3 +421,9 @@ svg.trend circle { animation: pop .4s var(--ease) both; }
 .toast.out { animation: toastOut .3s var(--ease) forwards; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(.96); } }
 @keyframes toastOut { to { opacity: 0; transform: translateY(10px); } }
+
+:focus-visible { outline: 3px solid var(--g600); outline-offset: 2px; }
+.confirm .row { margin-top: 10px; }
+.sapi-pick { margin-bottom: 14px; }
+.sapi-pick label.f { margin-top: 0; }
+.sapi-pick select { width: 100%; font: inherit; font-size: 15px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--card); color: var(--ink); }

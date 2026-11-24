@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,6 +40,10 @@ public class MainActivity extends Activity {
     static final String HOST = "appassets.androidplatform.net";
     static final String START_URL = "https://" + HOST + "/index.html";
     private static final int REQ_FILE = 41;
+    private static final int REQ_SAVE = 42;
+    private static final int MAX_FILE_CHARS = 20 * 1024 * 1024;
+    private static final String PENDING_SAVE = "cadangan_tertunda.json";
+    private String pendingSaveMem;
 
     private WebView web;
     private ValueCallback<Uri[]> pendingChooser;
@@ -69,6 +74,8 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);          // localStorage untuk riwayat
         s.setAllowFileAccess(false);
+        s.setAllowFileAccessFromFileURLs(false);
+        s.setAllowUniversalAccessFromFileURLs(false);
         s.setAllowContentAccess(true);         // membaca foto dari kamera/galeri
         s.setMediaPlaybackRequiresUserGesture(true);
         s.setTextZoom(100);
@@ -128,9 +135,9 @@ public class MainActivity extends Activity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
             Uri u = req.getUrl();
-            if (HOST.equals(u.getHost())) return false;
-            // tautan luar (tel:, wa.me, dll.) dibuka oleh aplikasi lain
-            try { startActivity(new Intent(Intent.ACTION_VIEW, u)); } catch (ActivityNotFoundException ignored) { }
+            if ("https".equals(u.getScheme()) && HOST.equals(u.getHost())) return false;
+            // hanya tautan telepon yang diteruskan ke aplikasi lain; tautan lain diabaikan
+            if (req.isForMainFrame() && "tel".equals(u.getScheme())) safeStart(new Intent(Intent.ACTION_DIAL, u));
             return true;
         }
     }
@@ -143,12 +150,18 @@ public class MainActivity extends Activity {
             pendingChooser = callback;
             pendingCameraUri = null;
 
+            boolean image = true;
+            for (String t : params.getAcceptTypes()) if (t != null && (t.contains("json") || t.equals(".json"))) image = false;
+
             Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
             pick.addCategory(Intent.CATEGORY_OPENABLE);
-            pick.setType("image/*");
+            pick.setType(image ? "image/*" : "application/json");
+            if (!image) pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "application/octet-stream", "text/plain"});
 
             Intent intent;
-            if (params.isCaptureEnabled()) {
+            if (!image) {
+                intent = Intent.createChooser(pick, "Pilih berkas cadangan CowCare");
+            } else if (params.isCaptureEnabled()) {
                 Intent cam = cameraIntent();
                 intent = cam != null ? cam : pick;
             } else {
@@ -185,6 +198,29 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_SAVE) {
+            // isi cadangan dibaca dari berkas privat agar tetap ada bila Activity dibuat ulang saat pemilih terbuka
+            File pending = new File(getCacheDir(), PENDING_SAVE);
+            Uri dest = data == null ? null : data.getData();
+            try {
+                if (resultCode != RESULT_OK || dest == null) return;
+                try (InputStream in = pending.exists() ? new java.io.FileInputStream(pending)
+                        : new java.io.ByteArrayInputStream(pendingSaveMem == null ? new byte[0] : pendingSaveMem.getBytes(StandardCharsets.UTF_8));
+                     OutputStream out = getContentResolver().openOutputStream(dest)) {
+                    if (out == null) throw new IOException("stream");
+                    if (!pending.exists() && pendingSaveMem == null) throw new IOException("isi cadangan hilang");
+                    byte[] buf = new byte[8192];
+                    for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
+                    Toast.makeText(this, "Cadangan disimpan", Toast.LENGTH_SHORT).show();
+                } catch (IOException e) {
+                    Toast.makeText(this, "Gagal menyimpan cadangan, coba unduh lagi", Toast.LENGTH_LONG).show();
+                }
+            } finally {
+                pendingSaveMem = null;
+                if (pending.exists() && !pending.delete()) pending.deleteOnExit();
+            }
+            return;
+        }
         if (requestCode != REQ_FILE || pendingChooser == null) return;
         Uri[] result = null;
         if (resultCode == RESULT_OK) {
@@ -200,6 +236,7 @@ public class MainActivity extends Activity {
     private class Bridge {
         @JavascriptInterface
         public void shareText(String text) {
+            if (text == null || text.length() > 4000) return;
             Intent i = new Intent(Intent.ACTION_SEND);
             i.setType("text/plain");
             i.putExtra(Intent.EXTRA_TEXT, text);
@@ -215,24 +252,62 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void saveCsv(String name, String content) {
-            String safe = name == null ? "cowcare.csv" : name.replaceAll("[^A-Za-z0-9._-]", "_");
+            saveFile(name, content, "text/csv");
+        }
+
+        @JavascriptInterface
+        public void saveFile(String name, String content, String mime) {
+            boolean csv = "text/csv".equals(mime);
+            if (!csv && !"application/json".equals(mime)) return;
+            if (content == null || content.length() > MAX_FILE_CHARS) return;
+            String safe = name == null ? (csv ? "cowcare.csv" : "cowcare.json") : name.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (!csv) {
+                // cadangan disimpan lewat pemilih lokasi Android, bukan dibagikan
+                Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                save.addCategory(Intent.CATEGORY_OPENABLE);
+                save.setType(mime);
+                save.putExtra(Intent.EXTRA_TITLE, safe);
+                File pending = new File(getCacheDir(), PENDING_SAVE);
+                boolean onDisk;
+                try (FileOutputStream out = new FileOutputStream(pending)) {
+                    out.write(content.getBytes(StandardCharsets.UTF_8));
+                    onDisk = true;
+                } catch (IOException e) {
+                    // memori internal penuh: isi disimpan di memori agar tetap bisa disimpan ke lokasi lain
+                    pending.delete();
+                    onDisk = false;
+                }
+                final String mem = onDisk ? null : content;
+                runOnUiThread(() -> {
+                    pendingSaveMem = mem;
+                    try { startActivityForResult(save, REQ_SAVE); } catch (ActivityNotFoundException e) {
+                        pending.delete();
+                        pendingSaveMem = null;
+                        Toast.makeText(MainActivity.this, "Tidak ada aplikasi penyimpan berkas", Toast.LENGTH_LONG).show();
+                    }
+                });
+                return;
+            }
+            // nama unik per ekspor agar izin URI ekspor sebelumnya tidak ikut membaca isi baru
+            safe = System.currentTimeMillis() + "_" + safe;
             try {
                 File dir = new File(getCacheDir(), SharedFileProvider.DIR);
                 if (!dir.exists() && !dir.mkdirs()) throw new IOException("mkdir");
                 File f = new File(dir, safe);
                 try (FileOutputStream out = new FileOutputStream(f)) {
-                    out.write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF}); // BOM agar Excel membaca UTF-8
+                    if (csv) out.write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF}); // BOM agar Excel membaca UTF-8
                     out.write(content.getBytes(StandardCharsets.UTF_8));
                 }
                 Uri uri = SharedFileProvider.uriFor(safe);
                 Intent i = new Intent(Intent.ACTION_SEND);
-                i.setType("text/csv");
+                i.setType(mime);
                 i.putExtra(Intent.EXTRA_STREAM, uri);
                 i.setClipData(ClipData.newRawUri(safe, uri));
                 i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                runOnUiThread(() -> safeStart(Intent.createChooser(i, "Simpan atau kirim CSV riwayat")));
+                String judul = csv ? "Simpan atau kirim CSV riwayat" : "Simpan cadangan riwayat";
+                runOnUiThread(() -> safeStart(Intent.createChooser(i, judul)));
             } catch (IOException e) {
-                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Gagal membuat CSV", Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Gagal membuat berkas", Toast.LENGTH_LONG).show());
             }
         }
     }
