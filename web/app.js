@@ -177,7 +177,8 @@
   function refreshNet() {
     var b = $("#netBadge"); if (!b) return;
     var on = navigator.onLine;
-    b.textContent = (ai.ready ? "AI siap" : "Memuat AI…") + " · " + (on ? "online" : "offline");
+       b.textContent = !ai.ready ? "Menyiapkan…" : (on ? "" : "Mode offline");
+    b.hidden = ai.ready && on;
     b.className = "net" + (on ? "" : " off");
   }
   window.addEventListener("online", refreshNet); window.addEventListener("offline", refreshNet);
