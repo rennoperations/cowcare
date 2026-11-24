@@ -323,7 +323,7 @@
     var R = 42, C = 2 * Math.PI * R, off = C * (1 - Math.max(0, Math.min(100, s)) / 100);
     return '<div class="ring st-' + status + (cls ? " " + cls : "") + '"><svg viewBox="0 0 100 100"><circle class="bg" cx="50" cy="50" r="' + R + '" fill="none" stroke-width="9"/>' +
       '<circle class="fg" cx="50" cy="50" r="' + R + '" fill="none" stroke-width="9" stroke-dasharray="' + C.toFixed(1) + '" style="stroke-dashoffset:' + C.toFixed(1) + '" data-off="' + off.toFixed(1) + '"/></svg>' +
-      '<div class="val"><div><b><span data-count="' + s + '">0</span>%</b><span>' + (label || "skor S") + '</span></div></div></div>';
+      '<div class="val"><div><b><span data-count="' + s + '">0</span>%</b><span class="cap">' + (label || "skor S") + '</span></div></div></div>';
   }
   function disclaimerHtml() { return '<div class="disclaimer">' + ic("info") + '<span>' + DISCLAIMER + '</span></div>'; }
 
