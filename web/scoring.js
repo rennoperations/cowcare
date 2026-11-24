@@ -1,14 +1,15 @@
 /* CowCare scoring (desain revisi 3 faktor terbesar, 18 Nov 2026).
- * S = 0,612 x S_liur + 0,256 x S_lepuh + 0,132 x S_jarak   (dalam persen)
+ * Bobot AHP berbasis literatur (CR = 0): S = 0,571 x S_lepuh + 0,286 x S_liur + 0,143 x S_jarak (persen)
  * S_lepuh = MAX(lepuh mulut, lepuh kuku)
- * Aturan Mutlak: jarak Jauh (> 5 km dari kasus aktif) -> S = 0 %, H = 95 % (Aman)
+ * Jarak Dekat = <= 10 km dari kasus aktif (radius populasi terancam, KIAT VETINDO PMK 2022).
+ * Jarak Jauh hanya membuat S_jarak = 0; lepuh dan air liur tetap dihitung.
  * H = 95 - 0,45 x S, rentang 50-95 %
  * Status: Merah bila S >= 60 %. Batas Kuning (S >= 30 %) bersifat sementara,
  * menunggu validasi bersama dokter hewan.
  */
 (function (root) {
   "use strict";
-  var W = { liur: 0.612, lepuh: 0.256, jarak: 0.132 };
+  var W = { lepuh: 0.571, liur: 0.286, jarak: 0.143 };
   // Intensitas tiap derajat dinormalisasi 0-1 (skala linear; asumsi kerja, perlu validasi dokter hewan)
   var INT_LIUR = [0, 0.25, 0.5, 0.75, 1];
   var INT_LEPUH = [0, 1 / 3, 2 / 3, 1];
@@ -21,26 +22,19 @@
     var gejalaTerlihat = (inp.liur || 0) >= 2 || lepuh >= 1;
     var r = {
       intensitas: { liur: INT_LIUR[inp.liur || 0], lepuh: INT_LEPUH[lepuh], jarak: jarakDekat ? 1 : 0 },
-      lepuhDerajat: lepuh, aturanMutlak: false, gejalaTerlihat: gejalaTerlihat
+      lepuhDerajat: lepuh, aturanMutlak: false, jarakJauh: !jarakDekat, gejalaTerlihat: gejalaTerlihat
     };
-    if (!jarakDekat) {
-      r.aturanMutlak = true;
-      r.kontribusi = { liur: 0, lepuh: 0, jarak: 0 };
-      r.S = 0; r.H = 95;
-    } else {
-      r.kontribusi = {
-        liur: 100 * W.liur * r.intensitas.liur,
-        lepuh: 100 * W.lepuh * r.intensitas.lepuh,
-        jarak: 100 * W.jarak * r.intensitas.jarak
-      };
-      r.S = r.kontribusi.liur + r.kontribusi.lepuh + r.kontribusi.jarak;
-      r.H = Math.max(50, Math.min(95, 95 - 0.45 * r.S));
-    }
+    r.kontribusi = {
+      liur: 100 * W.liur * r.intensitas.liur,
+      lepuh: 100 * W.lepuh * r.intensitas.lepuh,
+      jarak: 100 * W.jarak * r.intensitas.jarak
+    };
+    r.S = r.kontribusi.liur + r.kontribusi.lepuh + r.kontribusi.jarak;
+    r.H = Math.max(50, Math.min(95, 95 - 0.45 * r.S));
     r.S = Math.round(r.S * 10) / 10;
     r.H = Math.round(r.H * 10) / 10;
     r.status = r.S >= MERAH ? "merah" : (r.S >= KUNING ? "kuning" : "hijau");
-    // Pengaman: Aturan Mutlak memberi "Aman", tetapi bila gejala terlihat, pengguna tetap diminta menghubungi dokter hewan
-    r.peringatanGejala = r.aturanMutlak && gejalaTerlihat;
+    r.peringatanGejala = r.jarakJauh && gejalaTerlihat && r.status === "hijau";
     r.rujuk = r.status !== "hijau" || r.peringatanGejala || lepuh >= 1;
     return r;
   }

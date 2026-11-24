@@ -7,7 +7,7 @@ from load_pt import load_state_dict
 EPS = 1e-5
 CFG = [(1, 16, 1, 1), (6, 24, 2, 2), (6, 32, 3, 2), (6, 64, 4, 2),
        (6, 96, 3, 1), (6, 160, 3, 2), (6, 320, 1, 1)]
-CLASSES = ["kuku_sakit", "kuku_sehat", "mulut_sakit", "mulut_sehat"]
+CLASSES = os.environ.get("CLASSES", "kuku_sakit,kuku_sehat,mulut_sakit,mulut_sehat").split(",")
 
 
 def fold(sd, conv, bn):
@@ -50,7 +50,7 @@ def build_layers(sd):
             idx += 1
     w, b = fold(sd, "features.18.0", "features.18.1")
     L.append(dict(type="pw", cin=320, cout=1280, relu=True, w=w, b=b))
-    L.append(dict(type="fc", cin=1280, cout=4,
+    L.append(dict(type="fc", cin=1280, cout=sd["classifier.1.weight"].shape[0],
                   w=sd["classifier.1.weight"].astype(np.float32),
                   b=sd["classifier.1.bias"].astype(np.float32)))
     return L
@@ -162,7 +162,8 @@ def export(L, outdir, dtype="f16"):
     with open(os.path.join(outdir, "weights.bin"), "wb") as f:
         for c in chunks:
             f.write(c)
-    meta = dict(name="cowcare-mobilenetv2-fmd4", version="0.4.0-poc", classes=CLASSES,
+    meta = dict(name=os.environ.get("NAME", "cowcare-mobilenetv2-fmd4"), version=os.environ.get("VERSION", "0.4.0-poc"),
+                classes=CLASSES, temperature=float(os.environ.get("TEMPERATURE", "1")),
                 input=[224, 224, 3], mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225],
                 dtype="float16", n_values=off, layers=manifest)
     with open(os.path.join(outdir, "model.json"), "w") as f:

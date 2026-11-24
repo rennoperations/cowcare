@@ -5,7 +5,7 @@
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
   var view = $("#view");
   var Android = window.CowCareAndroid || null; // jembatan native bila berjalan di APK
-  var APP_VERSION = "1.2.0";
+  var APP_VERSION = "1.3.0";
 
   // ---------- penyimpanan lokal (hanya di HP) ----------
   var store = {
@@ -28,7 +28,7 @@
     var hasil = Object.assign({}, r, {
       status: r.status, S: lim(r.S, 0, 100, 0), H: lim(r.H, 0, 100, 0), lepuhDerajat: lim(r.lepuhDerajat, 0, 3, 0),
       aturanMutlak: !!r.aturanMutlak, peringatanGejala: !!r.peringatanGejala, rujuk: !!r.rujuk,
-      kontribusi: { liur: lim(k.liur, 0, 61.2, 0), lepuh: lim(k.lepuh, 0, 25.6, 0), jarak: lim(k.jarak, 0, 13.2, 0) }
+      kontribusi: { liur: lim(k.liur, 0, 100, 0), lepuh: lim(k.lepuh, 0, 100, 0), jarak: lim(k.jarak, 0, 100, 0) }
     });
     return Object.assign({}, e, {
       t: t, sapi: str(e.sapi, 30), S: hasil.S, H: hasil.H, status: e.status, jarak: JARAK_OK[e.jarak] ? e.jarak : "tidak_tahu",
@@ -149,7 +149,8 @@
     if (q.brightness > TERANG) o.issues.push("terang");
     if (q.sharpness < BURAM) o.issues.push("buram");
     if (im && Math.min(im.naturalWidth, im.naturalHeight) < MIN_SISI) o.issues.push("kecil");
-    if (top.indexOf(other) === 0 && p[top] >= 0.5) o.issues.push("salah_area");
+    if (top === "bukan_target" && p[top] >= 0.5) o.issues.push("bukan_target");
+    else if (top.indexOf(other) === 0 && p[top] >= 0.5) o.issues.push("salah_area");
     if (o.issues.length) o.band = "gagal";
     else if (conf >= YAKIN) o.band = "yakin";
     else if (conf >= RAGU) o.band = "ragu";
@@ -180,8 +181,8 @@
     ["Luka luas", "Luka lebar atau banyak, kulit mengelupas"]
   ];
   var JARAK = [
-    ["jauh", "Jauh", "Lebih dari 5 km dari kasus aktif", "pin"],
-    ["dekat", "Dekat", "5 km atau kurang", "target"],
+    ["jauh", "Jauh", "Lebih dari 10 km dari kasus aktif", "pin"],
+    ["dekat", "Dekat", "10 km atau kurang", "target"],
     ["tidak_tahu", "Tidak tahu", "Dihitung sebagai Dekat demi kehati-hatian", "help"]
   ];
   var STATUS = {
@@ -458,7 +459,10 @@
       if (o.issues.indexOf("terang") >= 0) why.push("terlalu terang");
       if (o.issues.indexOf("buram") >= 0) why.push("buram");
       if (o.issues.indexOf("kecil") >= 0) why.push("resolusi terlalu kecil");
-      if (o.issues.indexOf("salah_area") >= 0) {
+      if (o.issues.indexOf("bukan_target") >= 0) {
+        t = "Foto ini tidak tampak seperti " + nama + " sapi";
+        msg = "AI menilai foto ini bukan " + nama + " sapi. Hasil AI untuk foto ini tidak dipakai.";
+      } else if (o.issues.indexOf("salah_area") >= 0) {
         t = "Foto ini tampak seperti " + (o.area === "mulut" ? "kuku" : "mulut") + ", bukan " + nama;
         msg = "Pastikan Anda memotret " + nama + " sapi. Hasil AI untuk foto ini tidak dipakai.";
       } else {
@@ -514,7 +518,7 @@
       if (S.busy) h += '<div class="scan"></div><div class="scan-l"><span class="spinner"></span>' + (ai.ready ? "AI menganalisis foto di HP…" : "Menunggu model AI siap…") + '</div>';
       else if (data.ai && (data.ok || data.ai.band === "gagal")) {
         var st = badgeTone(data.ai);
-        h += '<span class="ai-tag st-' + st + '">' + ic("spark") + ' ' + (data.ai.band === "gagal" ? "Foto ditolak" : (data.ai.sakit ? "Tanda luka" : "Tidak tampak luka") + " · " + pct(data.ai.conf)) + '</span>';
+        h += '<span class="ai-tag st-' + st + '">' + ic("spark") + ' ' + (data.ai.band === "gagal" ? "Foto ditolak" : data.ai.band === "rendah" ? "AI tidak yakin" : (data.ai.sakit ? "Tanda luka" : "Tidak tampak luka") + " · " + pct(data.ai.conf)) + '</span>';
       }
     } else {
       h += '<span class="pi">' + ic(area === "mulut" ? "cow" : "hoof") + '</span><b style="color:var(--ink2)">Pratinjau foto ' + label + ' sapi</b>' +
@@ -584,11 +588,11 @@
     renderPeriksa();
   }
 
-  // Model belum bisa menolak foto yang bukan sapi, jadi pengguna memastikan objeknya sebelum hasil AI ditampilkan.
+  // Pengaman tambahan di samping kelas bukan_target: pengguna memastikan objek foto sebelum hasil AI ditampilkan.
   function confirmHtml(area) {
     var nama = area === "mulut" ? "mulut" : "kuku";
     return '<div class="card confirm" id="confirm"><h3>' + ic("help") + 'Apakah ini foto ' + nama + ' sapi?</h3>' +
-      '<p class="small muted">AI CowCare hanya dilatih dengan foto mulut dan kuku sapi, sehingga belum bisa mengenali foto manusia, hewan lain, atau benda. Hasil AI ditampilkan setelah Anda memastikan.</p>' +
+      '<p class="small muted">AI CowCare dilatih dengan foto mulut dan kuku sapi. AI bisa menolak sebagian foto lain, tetapi tidak selalu. Bila foto tidak ditolak, hasil AI ditampilkan setelah Anda memastikan.</p>' +
       '<div class="row"><button class="btn primary" id="okYa">' + ic("check") + 'Ya, ' + nama + ' sapi</button>' +
       '<button class="btn" id="okTidak">' + ic("refresh") + 'Bukan, foto ulang</button></div></div>';
   }
@@ -647,8 +651,8 @@
       if (m1 && !S.busy && !m1.ok) h += confirmHtml("mulut") + sampleBlock("mulut");
       if (m1 && !S.busy && m1.ok) {
         var hintSakit = S.mulut.ai && S.mulut.ai.sakit && S.mulut.ai.band !== "gagal" && S.mulut.ai.band !== "rendah";
-        h += '<div class="q" id="qLiur"><div class="q-h"><h3>' + ic("drop") + ' Seberapa banyak air liurnya?</h3><span class="xs">bobot 61,2%</span></div>' + optsHtml("liur", LIUR, S.liur) + '</div>';
-        h += '<div class="q"><div class="q-h"><h3>' + ic("blister") + ' Lepuh di gusi atau lidah?</h3><span class="xs">bobot 25,6%</span></div>' + optsHtml("lepuhMulut", LEPUH, S.lepuhMulut) + '</div>';
+        h += '<div class="q" id="qLiur"><div class="q-h"><h3>' + ic("drop") + ' Seberapa banyak air liurnya?</h3><span class="xs">bobot 28,6%</span></div>' + optsHtml("liur", LIUR, S.liur) + '</div>';
+        h += '<div class="q"><div class="q-h"><h3>' + ic("blister") + ' Lepuh di gusi atau lidah?</h3><span class="xs">bobot 57,1%</span></div>' + optsHtml("lepuhMulut", LEPUH, S.lepuhMulut) + '</div>';
         if (S.mulut.aiPrefill) h += '<div class="notice ok small">' + ic("spark") + '<span>AI tidak melihat luka, jadi derajat 0 diisi sebagai saran awal. Ganti bila kondisi sapi berbeda.</span></div>';
         if (hintSakit) h += '<div class="notice warn small">' + ic("alert") + '<span>AI melihat tanda luka di mulut. Pilih derajat yang Anda lihat langsung; pilih 0 bila ternyata tidak ada.</span></div>';
         if (S.mulut) h += sampleBlock("mulut");
@@ -716,7 +720,7 @@
     if (S.kuku && S.kuku.ai && S.kuku.ai.band !== "gagal") c = c || (S.kuku.ai.sakit !== ((S.lepuhKuku || 0) > 0));
     return c;
   }
-  function jarakTxt(j) { return j === "jauh" ? "Jauh (> 5 km)" : j === "dekat" ? "Dekat (≤ 5 km)" : "Tidak tahu (dihitung Dekat)"; }
+  function jarakTxt(j) { return j === "jauh" ? "Jauh (> 10 km)" : j === "dekat" ? "Dekat (≤ 10 km)" : "Tidak tahu (dihitung Dekat)"; }
   function viewHasil(entry) {
     var r, ctx;
     if (entry) { r = entry.hasil; ctx = entry; }
@@ -734,7 +738,7 @@
       '<span class="sapi">' + ic("cow") + esc(ctx.sapi || "Sapi tanpa nama") + '</span>' +
       '<div class="scale"><div class="tr"><span class="mk" style="left:0" data-left="' + Math.min(100, r.S) + '%"></span></div>' +
       '<div class="lb"><span style="left:0;transform:none">0</span><span style="left:30%">30 Waspada</span><span style="left:60%">60 Suspek</span><span style="right:0;left:auto;transform:none">100</span></div></div></div>';
-    if (r.aturanMutlak) h += '<div class="notice info small">' + ic("pin") + '<span><b>Aturan Mutlak jarak:</b> kandang lebih dari 5 km dari kasus aktif, sehingga skor dihitung 0% (Aman).</span></div>';
+    if (r.jarakJauh) h += '<div class="notice info small">' + ic("pin") + '<span><b>Jarak jauh:</b> kandang lebih dari 10 km dari kasus aktif, sehingga faktor jarak bernilai 0%. Gejala tetap dihitung.</span></div>';
     if (r.peringatanGejala) h += '<div class="notice err">' + ic("alert") + '<span><b>Perhatian:</b> walau jarak jauh, gejala terlihat pada sapi. Hubungi dokter hewan untuk memastikan.</span></div>';
     else if (r.status === "hijau" && r.lepuhDerajat >= 1) h += '<div class="notice warn">' + ic("alert") + '<span><b>Ada lepuh.</b> PMK wajib dilaporkan; minta petugas kesehatan hewan memeriksa sapi ini.</span></div>';
     h += '<div class="kpis"><div class="kpi st-' + r.status + '"><div class="kl">' + ic("chart") + 'Skor suspek (S)</div><b style="color:var(--cd)"><span data-count="' + r.S + '">0</span>%</b><div class="ks">Merah ≥ 60% · Kuning ≥ 30%</div></div>' +
@@ -743,12 +747,12 @@
     h += '<div class="card st-' + r.status + '"><h3>' + ic("list") + 'Saran tindakan</h3><ol class="saran">' + SARAN[r.status].map(function (s) { return "<li><span>" + s + "</span></li>"; }).join("") + '</ol></div>';
     var k = r.kontribusi;
     h += '<div class="card"><h3>' + ic("chart") + 'Mengapa hasilnya begini?</h3><div class="bars">' +
-      [["Air liur", k.liur, 61.2, "derajat " + ctx.liur], ["Lepuh terparah", k.lepuh, 25.6, "derajat " + r.lepuhDerajat + (ctx.lepuhKuku != null && ctx.lepuhKuku >= ctx.lepuhMulut && r.lepuhDerajat ? " (kuku)" : r.lepuhDerajat ? " (mulut)" : "")],
-       ["Jarak kasus", k.jarak, 13.2, ctx.jarak === "jauh" ? "Jauh" : ctx.jarak === "dekat" ? "Dekat" : "Tidak tahu"]].map(function (b) {
+      [["Air liur", k.liur, Math.round(1000 * CowScore.BOBOT.liur) / 10, "derajat " + ctx.liur], ["Lepuh terparah", k.lepuh, Math.round(1000 * CowScore.BOBOT.lepuh) / 10, "derajat " + r.lepuhDerajat + (ctx.lepuhKuku != null && ctx.lepuhKuku >= ctx.lepuhMulut && r.lepuhDerajat ? " (kuku)" : r.lepuhDerajat ? " (mulut)" : "")],
+       ["Jarak kasus", k.jarak, Math.round(1000 * CowScore.BOBOT.jarak) / 10, ctx.jarak === "jauh" ? "Jauh" : ctx.jarak === "dekat" ? "Dekat" : "Tidak tahu"]].map(function (b) {
         return '<div class="b"><div class="bl"><span><b>' + b[0] + '</b> · ' + b[3] + '</span><span><span class="val">' + num(b[1].toFixed(1)) + '</span> / ' + num(b[2]) + '</span></div>' +
-          '<div class="track"><span class="max"></span><i style="width:' + (b[1] / b[2] * 100) + '%"></i></div></div>';
+          '<div class="track"><span class="max"></span><i style="width:' + Math.min(100, b[1] / b[2] * 100) + '%"></i></div></div>';
       }).join("") + '</div>' +
-      '<div class="formula">S = 0,612·liur + 0,256·lepuh + 0,132·jarak = ' + num(r.S) + '%</div>' +
+      '<div class="formula">S = 0,571·lepuh + 0,286·liur + 0,143·jarak = ' + num(r.S) + '%</div>' +
       '<p class="xs" style="margin:0">Angka = sumbangan ke skor S. Batas Kuning masih sementara, menunggu validasi dokter hewan.</p></div>';
     h += '<div class="card"><h3>' + ic("spark") + 'Ringkasan AI dan isian</h3><table class="t">' +
       '<tr><td>AI foto mulut</td><td>' + esc(ctx.aiMulut) + '</td></tr><tr><td>AI foto kuku</td><td>' + esc(ctx.aiKuku) + '</td></tr>' +
@@ -791,7 +795,7 @@
   function summaryText(r, ctx) {
     return "CowCare – hasil triase PMK\nSapi: " + (ctx.sapi || "-") + "\nStatus: " + STATUS[r.status].label +
       "\nSkor suspek S: " + num(r.S) + "% | H: " + num(r.H) + "%\nAir liur derajat " + ctx.liur + ", lepuh terparah derajat " + r.lepuhDerajat +
-      ", jarak kasus: " + (ctx.jarak === "jauh" ? "> 5 km" : ctx.jarak === "dekat" ? "≤ 5 km" : "tidak tahu") +
+      ", jarak kasus: " + (ctx.jarak === "jauh" ? "> 10 km" : ctx.jarak === "dekat" ? "≤ 10 km" : "tidak tahu") +
       "\nAI foto mulut: " + ctx.aiMulut + "\n(Hasil triase, bukan diagnosis. Mohon pemeriksaan dokter hewan.)";
   }
   function contactBlock() {
@@ -972,13 +976,14 @@
     var c = consent(), n = history().length, tel = store.get("vetTel", "");
     var h = acc("panduan", "scan", "Panduan foto", '<ol><li>Foto di tempat terang (siang hari, bukan di bawah bayangan).</li><li>Dekatkan kamera ke mulut sapi; gusi, lidah, dan liur harus terlihat.</li>' +
       '<li>Untuk kuku: bersihkan lumpur, foto sela kuku dan pinggiran atas kuku.</li><li>Tahan HP agar tidak goyang. Satu sapi per foto.</li></ol>');
-    h += acc("skor", "chart", "Cara skor dihitung", '<p>CowCare memakai 3 faktor terbesar penentu status PMK:</p>' +
-      '<table class="t"><tr><td>Air liur (derajat 0–4)</td><td><b>61,2%</b></td></tr><tr><td>Lepuh terparah, mulut atau kuku (0–3)</td><td><b>25,6%</b></td></tr><tr><td>Jarak ke kasus aktif</td><td><b>13,2%</b></td></tr></table>' +
-      '<div class="formula">S = 0,612·liur + 0,256·lepuh + 0,132·jarak<br>H = 95 − 0,45·S (50–95%)</div>' +
-      '<p>Merah bila S ≥ 60%, Kuning bila S ≥ 30% (batas sementara, menunggu validasi dokter hewan). Bila kandang lebih dari 5 km dari kasus aktif, S = 0% dan H = 95% (Aturan Mutlak), tetapi CowCare tetap memberi peringatan bila gejala terlihat.</p>');
-    h += acc("ai", "spark", "Peran AI dan batasnya", '<p>AI (MobileNetV2, 4 kelas: mulut/kuku sakit atau sehat) membaca foto langsung di HP. Keyakinan ≥ 80% disebut yakin, 60–80% ragu, di bawahnya tidak yakin. Foto ditolak bila terlalu gelap, terlalu terang, buram, atau salah area.</p>' +
-      '<p><b>Keterbatasan:</b> model uji coba dilatih dari 1.138 foto (akurasi uji 96,8%, recall kelas sakit 96,6%). Pada foto sapi sehat dari sumber lain, AI sering keliru menandainya sebagai luka. Karena itu skor selalu memakai derajat yang Anda pilih.</p>' +
-      '<p>AI juga belum bisa menolak foto yang bukan sapi (mis. foto manusia atau benda). Karena itu CowCare meminta Anda memastikan objek foto sebelum hasil AI ditampilkan.</p>');
+    h += acc("skor", "chart", "Cara skor dihitung", '<p>CowCare memakai 3 faktor PMK. Bobotnya dihitung dengan AHP dari literatur (WOAH, KIAT VETINDO PMK 2022, studi wabah Indonesia 2022), consistency ratio 0. Lepuh paling berat karena menjadi tanda khas PMK.</p>' +
+      '<table class="t"><tr><td>Lepuh terparah, mulut atau kuku (0–3)</td><td><b>57,1%</b></td></tr><tr><td>Air liur (derajat 0–4)</td><td><b>28,6%</b></td></tr><tr><td>Jarak ke kasus aktif (≤ 10 km)</td><td><b>14,3%</b></td></tr></table>' +
+      '<div class="formula">S = 0,571·lepuh + 0,286·liur + 0,143·jarak<br>H = 95 − 0,45·S (50–95%)</div>' +
+      '<p>Merah bila S ≥ 60%, Kuning bila S ≥ 30% (batas sementara, menunggu validasi dokter hewan). Radius 10 km mengikuti batas populasi terancam KIAT VETINDO PMK 2022. Bila kandang lebih jauh, faktor jarak bernilai 0%, tetapi lepuh dan air liur tetap dihitung.</p>');
+    h += acc("ai", "spark", "Peran AI dan batasnya", '<p>AI (MobileNetV2, 5 kelas: mulut/kuku sakit atau sehat, dan bukan target) membaca foto langsung di HP, tanpa internet. Keyakinan ≥ 80% disebut yakin, 60–80% ragu, di bawahnya tidak yakin. Foto ditolak bila terlalu gelap, terlalu terang, buram, salah area, atau bukan mulut/kuku sapi.</p>' +
+      '<p><b>Kinerja:</b> dilatih dari 4 sumber dataset dengan split train/validasi/uji per kelompok sapi tanpa kebocoran. Akurasi uji 89,5% (train 99,3%), recall lesi 87,5%, foto bukan target dikenali 95%.</p>' +
+      '<p><b>Keterbatasan:</b> foto kuku sehat masih dari satu kandang dan belum ada foto lapangan Indonesia. AI hanya menilai ada tidaknya lesi, bukan derajatnya, jadi skor selalu memakai derajat yang Anda pilih.</p>' +
+      '<p>AI menolak sebagian besar foto yang bukan mulut/kuku sapi. Sebagai pengaman tambahan, CowCare tetap meminta Anda memastikan objek foto sebelum hasil AI ditampilkan.</p>');
     h += acc("sop", "book", "SOP PMK", '<p>' + DISCLAIMER + '</p><ul><li>Tanda PMK: demam, air liur berlebihan, lepuh di mulut, lidah, gusi, sela kuku, atau puting, sapi pincang dan enggan makan.</li>' +
       '<li>PMK menular cepat lewat kontak langsung, orang, kendaraan, dan peralatan.</li><li>Pisahkan sapi bergejala, jangan menjual atau memindahkan sapi.</li><li>Laporkan ke petugas kesehatan hewan setempat.</li></ul>');
     h += '<div class="card" style="margin-top:14px"><h3>' + ic("stetho") + 'Nomor dokter hewan / petugas</h3><label class="f" for="vetTel" style="margin-top:4px">Nomor telepon</label><div class="input">' + ic("phone") +

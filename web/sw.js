@@ -1,7 +1,7 @@
 /* Service worker: menyimpan aplikasi dan model AI supaya CowCare tetap jalan tanpa sinyal.
    File aplikasi (html/js/css) diambil dari internet dulu bila ada sinyal, supaya pembaruan langsung terlihat;
    bila tidak ada sinyal, dipakai salinan yang tersimpan. Model dan gambar langsung dari simpanan. */
-var PREFIX = "cowcare-", CACHE = PREFIX + "v1.2.0";
+var PREFIX = "cowcare-", CACHE = PREFIX + "v1.3.0";
 var ASSETS = [
   "./", "index.html", "styles.css", "app.js", "scoring.js", "engine.js", "worker.js",
   "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",

@@ -150,11 +150,11 @@
 
   Model.prototype.predict = function (rgba) {
     var t0 = (typeof performance !== "undefined" ? performance : Date).now();
-    var lg = this.logits(this.preprocess(rgba));
+    var lg = this.logits(this.preprocess(rgba)), T = this.meta.temperature || 1;
     var mx = -Infinity, i;
     for (i = 0; i < lg.length; i++) mx = Math.max(mx, lg[i]);
     var e = [], z = 0;
-    for (i = 0; i < lg.length; i++) { e.push(Math.exp(lg[i] - mx)); z += e[i]; }
+    for (i = 0; i < lg.length; i++) { e.push(Math.exp((lg[i] - mx) / T)); z += e[i]; }
     var probs = {}, cls = this.meta.classes;
     for (i = 0; i < cls.length; i++) probs[cls[i]] = e[i] / z;
     var t1 = (typeof performance !== "undefined" ? performance : Date).now();

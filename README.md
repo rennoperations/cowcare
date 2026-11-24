@@ -20,7 +20,7 @@ python -m http.server 8000
 
 Versi web juga bisa dipublikasikan ke GitHub Pages lewat workflow `pages.yml` (aktifkan Settings → Pages → Source: GitHub Actions).
 
-**Model di aplikasi:** `web/model/` berisi MobileNetV2 PoC 4 kelas (`mobilenetv2_fmd4.pt`) yang BatchNorm-nya dilipat dan bobotnya disimpan float16 (4,4 MB), dijalankan oleh `web/engine.js` tanpa library. Konversi ulang: `tools/export_model/`. Catatan jujur: pada uji foto sapi sehat dari sumber lain (Zenodo), model masih sering menandai sapi sehat sebagai sakit (bias framing), karena itu derajat selalu dipastikan peternak.
+**Model di aplikasi:** `web/model/` berisi MobileNetV2 v5a 5 kelas (`kuku_sakit`, `kuku_sehat`, `mulut_sakit`, `mulut_sehat`, `bukan_target`) dari dataset v2 (`dataset_kurasi/v2/`, split per kelompok tanpa kebocoran). BatchNorm dilipat, bobot float16 (4,4 MB), dijalankan oleh `web/engine.js` tanpa library, dengan temperature scaling 0,936. Uji: akurasi 89,5% (train 99,3%), recall lesi 87,5%, bukan target 95%. Konversi ulang: `tools/export_model/`. Keterbatasan: kuku sehat masih dari satu kandang, jadi derajat selalu dipastikan peternak.
 
 ## Isi repo
 
@@ -37,7 +37,7 @@ Versi web juga bisa dipublikasikan ke GitHub Pages lewat workflow `pages.yml` (a
 
 ## Status desain (penting)
 
-Dosen meminta desain dipangkas menjadi **3 faktor terbesar** agar seimbang antara kecerdasan AI dan kemudahan peternak. Desain baru (air liur 61,2%, lepuh terparah 25,6%, jarak 13,2%; kuesioner 1 pertanyaan; maksimal 2 foto; model 8 kelas) dicatat di `REVISI_DESAIN_3_Faktor_Terbesar_COWCARE.docx` dan baru diterapkan pada LKP berikutnya. Dokumen di `docs/` masih desain lama (7 faktor, 13 kelas, kuesioner 5 langkah).
+Dosen meminta desain dipangkas menjadi **3 faktor terbesar** agar seimbang antara kecerdasan AI dan kemudahan peternak. Desain baru (3 faktor; bobot kini dari AHP berbasis literatur: lepuh terparah 57,1%, air liur 28,6%, jarak ≤ 10 km 14,3%, CR = 0, lihat `docs/AHP_Bobot_Faktor_PMK_CowCare.docx`; kuesioner 1 pertanyaan; maksimal 2 foto; model 8 kelas) dicatat di `REVISI_DESAIN_3_Faktor_Terbesar_COWCARE.docx` dan baru diterapkan pada LKP berikutnya. Dokumen di `docs/` masih desain lama (7 faktor, 13 kelas, kuesioner 5 langkah).
 
 ## Ringkasan PoC
 
