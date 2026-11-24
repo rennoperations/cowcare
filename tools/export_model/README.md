@@ -12,3 +12,10 @@ python export_model.py ../../dataset_kurasi/poc/mobilenetv2_fmd4.pt ../../web/mo
 
 Bila model 8 kelas (desain revisi) sudah dilatih dengan arsitektur MobileNetV2 torchvision yang sama,
 cukup ganti `CLASSES` di `export_model.py` lalu jalankan perintah di atas.
+
+Model v5a (5 kelas, termasuk `bukan_target`, temperature dari kalibrasi validasi):
+
+```
+CLASSES=kuku_sakit,kuku_sehat,mulut_sakit,mulut_sehat,bukan_target NAME=cowcare-mobilenetv2-fmd5 \
+VERSION=0.5.0-v5a TEMPERATURE=0.936 python export_model.py ~/fmd/mobilenetv2_v5a.pt ../../web/model
+```
