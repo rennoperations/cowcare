@@ -4,7 +4,7 @@
   var $ = function (s, el) { return (el || document).querySelector(s); };
   var view = $("#view");
   var Android = window.CowCareAndroid || null; // jembatan native bila berjalan di APK
-  var APP_VERSION = "1.0.0";
+  var APP_VERSION = "1.0.1";
 
   // ---------- penyimpanan lokal (hanya di HP) ----------
   var store = {
@@ -570,18 +570,19 @@
       '<p class="small"><b>Keterbatasan AI versi ini:</b> model uji coba dilatih dari 1.138 foto. Pada uji dengan foto sapi sehat dari sumber lain, AI sering keliru menandainya sebagai luka. Karena itu skor CowCare selalu memakai derajat yang Anda pilih, bukan tebakan AI saja.</p></details>';
     h += '<details><summary>Tentang triase dan SOP PMK</summary><p class="small">' + DISCLAIMER + '</p><p class="small">Tanda PMK: demam, air liur berlebihan, lepuh di mulut, lidah, gusi, sela kuku, atau puting, sapi pincang dan enggan makan. PMK menular cepat lewat kontak langsung, orang, kendaraan, dan peralatan. Pisahkan sapi bergejala, jangan menjual atau memindahkan sapi, dan laporkan ke petugas kesehatan hewan.</p></details>';
     h += '<div class="card"><h3>Nomor dokter hewan / petugas</h3><input type="tel" id="vetTel" placeholder="mis. 0812xxxxxxx" value="' + esc(store.get("vetTel", "")) + '"><button class="btn" id="saveTel" style="margin-top:8px">Simpan nomor</button><p class="muted small">Disimpan hanya di HP ini.</p></div>';
-    h += '<div class="card"><h3>Data dan persetujuan</h3><p class="small">Status: <b>' + (c === "setuju" ? "riwayat disimpan di HP ini" : "riwayat tidak disimpan") + '</b>. Foto tidak pernah dikirim ke server.</p>' +
-      '<div class="stack">' + (c === "setuju" ? '<button class="btn" id="tolak">Berhenti menyimpan riwayat</button>' : '<button class="btn" id="setuju">Izinkan simpan riwayat di HP</button>') +
-      '<button class="btn danger" id="hapus">Hapus semua riwayat</button></div></div>';
-    h += '<p class="muted small">CowCare v' + APP_VERSION + ' · model ' + (ai.ready ? "MobileNetV2 PoC 4 kelas (siap)" : "sedang dimuat") + ' · Kelompok 13 PPKBP.</p>';
+    var n = history().length;
+    h += '<div class="card"><h3>Riwayat pemeriksaan</h3><p class="small">' +
+      (c === "setuju" ? "Hasil pemeriksaan tersimpan di HP ini saja" + (n ? " (" + n + " data)" : "") + ". Foto tidak dikirim ke mana pun."
+                      : "Riwayat sedang tidak disimpan, jadi hasil pemeriksaan hilang setelah aplikasi ditutup.") + '</p>' +
+      '<div class="stack">' + (c === "setuju" ? '<button class="btn" id="tolak">Jangan simpan riwayat</button>' : '<button class="btn" id="setuju">Simpan riwayat di HP ini</button>') +
+      '<button class="btn danger" id="hapus"' + (n ? "" : " disabled") + '>Hapus riwayat</button></div></div>';
+    h += '<p class="muted small" style="text-align:center">CowCare ' + APP_VERSION + ' · Kelompok 13 PPKBP</p>';
     view.innerHTML = h;
     $("#saveTel").onclick = function () { store.set("vetTel", $("#vetTel").value.trim()); $("#saveTel").textContent = "Tersimpan ✓"; };
     var t = $("#tolak"), s = $("#setuju");
     if (t) t.onclick = function () { memHistory = store.get("riwayat", []); store.del("riwayat"); store.set("consent", "tolak"); viewInfo(); };
     if (s) s.onclick = function () { store.set("consent", "setuju"); store.set("riwayat", memHistory); viewInfo(); };
-    twoTap($("#hapus"), "Tekan sekali lagi untuk menghapus semua", function () {
-      store.del("riwayat"); memHistory = []; $("#hapus").textContent = "Riwayat terhapus ✓"; $("#hapus").disabled = true;
-    });
+    twoTap($("#hapus"), "Tekan lagi untuk menghapus", function () { store.del("riwayat"); memHistory = []; viewInfo(); });
   }
 
   // ---------- router ----------
