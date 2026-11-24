@@ -884,7 +884,7 @@
         store.set("vetTel", v); sb.classList.add("done"); sb.innerHTML = ic("check") + "Tersimpan";
         toast(v ? "Nomor dokter hewan tersimpan" : "Nomor dihapus");
         var back = v && telReturn === "#hasil" && S && S.hasil ? "#hasil" : null; telReturn = null;
-        setTimeout(function () { if (location.hash !== "#info") return; if (back) { navDir = "back"; go(back); } else viewInfo(); }, 900);
+        setTimeout(function () { if (location.hash !== "#info") return; if (back) { navDir = "back"; window.history.back(); } else viewInfo(); }, 900);
       };
       var tt = $("#testTel");
       if (tt) tt.onclick = function () { var t = store.get("vetTel", ""); if (Android && Android.dial) Android.dial(t); else location.href = "tel:" + t.replace(/[^0-9+]/g, ""); };
