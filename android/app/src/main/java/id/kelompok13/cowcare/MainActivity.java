@@ -43,6 +43,7 @@ public class MainActivity extends Activity {
     private static final int REQ_SAVE = 42;
     private static final int MAX_FILE_CHARS = 20 * 1024 * 1024;
     private static final String PENDING_SAVE = "cadangan_tertunda.json";
+    private String pendingSaveMem;
 
     private WebView web;
     private ValueCallback<Uri[]> pendingChooser;
@@ -203,9 +204,11 @@ public class MainActivity extends Activity {
             Uri dest = data == null ? null : data.getData();
             try {
                 if (resultCode != RESULT_OK || dest == null) return;
-                try (InputStream in = new java.io.FileInputStream(pending);
+                try (InputStream in = pending.exists() ? new java.io.FileInputStream(pending)
+                        : new java.io.ByteArrayInputStream(pendingSaveMem == null ? new byte[0] : pendingSaveMem.getBytes(StandardCharsets.UTF_8));
                      OutputStream out = getContentResolver().openOutputStream(dest)) {
                     if (out == null) throw new IOException("stream");
+                    if (!pending.exists() && pendingSaveMem == null) throw new IOException("isi cadangan hilang");
                     byte[] buf = new byte[8192];
                     for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
                     Toast.makeText(this, "Cadangan disimpan", Toast.LENGTH_SHORT).show();
@@ -213,6 +216,7 @@ public class MainActivity extends Activity {
                     Toast.makeText(this, "Gagal menyimpan cadangan, coba unduh lagi", Toast.LENGTH_LONG).show();
                 }
             } finally {
+                pendingSaveMem = null;
                 if (pending.exists() && !pending.delete()) pending.deleteOnExit();
             }
             return;
@@ -264,15 +268,21 @@ public class MainActivity extends Activity {
                 save.setType(mime);
                 save.putExtra(Intent.EXTRA_TITLE, safe);
                 File pending = new File(getCacheDir(), PENDING_SAVE);
+                boolean onDisk;
                 try (FileOutputStream out = new FileOutputStream(pending)) {
                     out.write(content.getBytes(StandardCharsets.UTF_8));
+                    onDisk = true;
                 } catch (IOException e) {
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Gagal membuat berkas", Toast.LENGTH_LONG).show());
-                    return;
+                    // memori internal penuh: isi disimpan di memori agar tetap bisa disimpan ke lokasi lain
+                    pending.delete();
+                    onDisk = false;
                 }
+                final String mem = onDisk ? null : content;
                 runOnUiThread(() -> {
+                    pendingSaveMem = mem;
                     try { startActivityForResult(save, REQ_SAVE); } catch (ActivityNotFoundException e) {
                         pending.delete();
+                        pendingSaveMem = null;
                         Toast.makeText(MainActivity.this, "Tidak ada aplikasi penyimpan berkas", Toast.LENGTH_LONG).show();
                     }
                 });
