@@ -5,7 +5,7 @@
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
   var view = $("#view");
   var Android = window.CowCareAndroid || null; // jembatan native bila berjalan di APK
-  var APP_VERSION = "1.1.0";
+  var APP_VERSION = "1.2.0";
 
   // ---------- penyimpanan lokal (hanya di HP) ----------
   var store = {
@@ -15,9 +15,45 @@
   };
   var memHistory = []; // dipakai bila pengguna tidak menyetujui penyimpanan
   function consent() { return store.get("consent", null); }
-  function history() { return consent() === "setuju" ? store.get("riwayat", []) : memHistory; }
+  function history() { return consent() === "setuju" ? readHistory() : memHistory; }
+  // Riwayat dari localStorage tidak dipercaya begitu saja: nilai dicek dan dibatasi sebelum dipakai di tampilan.
+  var FOTO_RE = /^data:image\/(jpeg|png);base64,[A-Za-z0-9+\/=]+$/, JARAK_OK = { jauh: 1, dekat: 1, tidak_tahu: 1 }, rusakDiberitahu = false;
+  function lim(x, lo, hi, d) { x = Number(x); return isFinite(x) ? Math.max(lo, Math.min(hi, x)) : d; }
+  function str(x, n) { return typeof x === "string" ? x.slice(0, n) : ""; }
+  function cleanEntry(e) {
+    if (!e || typeof e !== "object") return null;
+    var r = e.hasil, t = Number(e.t);
+    if (!isFinite(t) || !STATUS[e.status] || !r || typeof r !== "object" || !STATUS[r.status]) return null;
+    var k = r.kontribusi && typeof r.kontribusi === "object" ? r.kontribusi : {};
+    var hasil = Object.assign({}, r, {
+      status: r.status, S: lim(r.S, 0, 100, 0), H: lim(r.H, 0, 100, 0), lepuhDerajat: lim(r.lepuhDerajat, 0, 3, 0),
+      aturanMutlak: !!r.aturanMutlak, peringatanGejala: !!r.peringatanGejala, rujuk: !!r.rujuk,
+      kontribusi: { liur: lim(k.liur, 0, 61.2, 0), lepuh: lim(k.lepuh, 0, 25.6, 0), jarak: lim(k.jarak, 0, 13.2, 0) }
+    });
+    return Object.assign({}, e, {
+      t: t, sapi: str(e.sapi, 30), S: hasil.S, H: hasil.H, status: e.status, jarak: JARAK_OK[e.jarak] ? e.jarak : "tidak_tahu",
+      liur: lim(e.liur, 0, 4, 0), lepuhMulut: lim(e.lepuhMulut, 0, 3, 0), lepuhKuku: e.lepuhKuku == null ? null : lim(e.lepuhKuku, 0, 3, null),
+      aiMulut: str(e.aiMulut, 120), aiKuku: str(e.aiKuku, 120), aiKelasMulut: str(e.aiKelasMulut, 40),
+      aiConfMulut: e.aiConfMulut == null ? null : lim(e.aiConfMulut, 0, 1, null), aiMs: e.aiMs == null ? null : lim(e.aiMs, 0, 1e6, null),
+      dikoreksi: !!e.dikoreksi, foto: typeof e.foto === "string" && FOTO_RE.test(e.foto) ? e.foto : null,
+      hasil: hasil, model: str(e.model, 40)
+    });
+  }
+  function cleanList(arr) { return (Array.isArray(arr) ? arr : []).map(cleanEntry).filter(Boolean); }
+  function readHistory() {
+    var raw; try { raw = localStorage.getItem("cowcare.riwayat"); } catch (e) { return []; }
+    if (raw === null) return [];
+    var arr = null; try { arr = JSON.parse(raw); } catch (e) {}
+    var list = cleanList(arr);
+    if (!Array.isArray(arr) || list.length !== arr.length) {
+      // salinan asli disimpan sekali agar data rusak masih bisa dipulihkan
+      try { if (localStorage.getItem("cowcare.riwayat_rusak") === null) localStorage.setItem("cowcare.riwayat_rusak", raw); } catch (e) {}
+      if (!rusakDiberitahu) { rusakDiberitahu = true; setTimeout(function () { toast("Sebagian data riwayat rusak dan dilewati", "err"); }, 0); }
+    }
+    return list;
+  }
   function saveHistory(h) {
-    if (consent() === "setuju") { if (!store.set("riwayat", h)) { toast("Memori HP penuh, riwayat gagal disimpan", "err"); return false; } }
+    if (consent() === "setuju") { if (!store.set("riwayat", h)) { toast("Memori HP penuh, riwayat gagal disimpan. Unduh cadangan lalu hapus data lama di Info.", "err"); return false; } }
     else memHistory = h;
     return true;
   }
@@ -75,14 +111,15 @@
     var cv = document.getElementById("cv"), ctx = cv.getContext("2d", { willReadFrequently: true });
     var w = im.naturalWidth, h = im.naturalHeight, side = Math.min(w, h) * 224 / 256;
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-    ctx.clearRect(0, 0, 224, 224);
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 224, 224);
     ctx.drawImage(im, (w - side) / 2, (h - side) / 2, side, side, 0, 0, 224, 224);
     return ctx.getImageData(0, 0, 224, 224).data;
   }
   function thumb(im, size, q) {
     var c = document.createElement("canvas"), s = Math.min(im.naturalWidth, im.naturalHeight);
     c.width = c.height = size;
-    c.getContext("2d").drawImage(im, (im.naturalWidth - s) / 2, (im.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+    var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, size, size);
+    g.drawImage(im, (im.naturalWidth - s) / 2, (im.naturalHeight - s) / 2, s, s, 0, 0, size, size);
     return c.toDataURL("image/jpeg", q || 0.7);
   }
   function readFile(file) {
@@ -96,8 +133,9 @@
 
   // Ambang ketidakpastian (sama dengan Laporan Bab 4.4 dan 6.4)
   var YAKIN = 0.80, RAGU = 0.60, GELAP = 35, TERANG = 225, BURAM = 15;
+  var MIN_SISI = 160, MAX_PIKSEL = 100e6, MAX_BYTE = 25 * 1024 * 1024;
 
-  function interpret(area, r) {
+  function interpret(area, r, im) {
     var p = r.probs, other = area === "mulut" ? "kuku" : "mulut";
     var top = Object.keys(p).sort(function (a, b) { return p[b] - p[a]; })[0];
     var sakit = p[area + "_sakit"], sehat = p[area + "_sehat"];
@@ -109,6 +147,7 @@
     if (q.brightness < GELAP) o.issues.push("gelap");
     if (q.brightness > TERANG) o.issues.push("terang");
     if (q.sharpness < BURAM) o.issues.push("buram");
+    if (im && Math.min(im.naturalWidth, im.naturalHeight) < MIN_SISI) o.issues.push("kecil");
     if (top.indexOf(other) === 0 && p[top] >= 0.5) o.issues.push("salah_area");
     if (o.issues.length) o.band = "gagal";
     else if (conf >= YAKIN) o.band = "yakin";
@@ -270,7 +309,12 @@
     $("#title").textContent = t; $("#subtitle").textContent = sub || ""; $("#btnBack").hidden = !back;
     $("#topbar").classList.toggle("hero", !!hero);
   }
-  function setTab(tab) { $$(".bottomnav a").forEach(function (a) { a.classList.toggle("on", a.dataset.tab === tab); }); }
+  function setTab(tab) {
+    $$(".bottomnav a").forEach(function (a) {
+      var on = a.dataset.tab === tab; a.classList.toggle("on", on);
+      if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+  }
   function showNav(on) { $("#nav").hidden = !on; view.classList.toggle("no-nav", !on); $("#toasts").classList.toggle("no-nav", !on); }
   function refreshNet() {
     var b = $("#netBadge"); if (!b) return;
@@ -412,6 +456,7 @@
       if (o.issues.indexOf("gelap") >= 0) why.push("terlalu gelap");
       if (o.issues.indexOf("terang") >= 0) why.push("terlalu terang");
       if (o.issues.indexOf("buram") >= 0) why.push("buram");
+      if (o.issues.indexOf("kecil") >= 0) why.push("resolusi terlalu kecil");
       if (o.issues.indexOf("salah_area") >= 0) {
         t = "Foto ini tampak seperti " + (o.area === "mulut" ? "kuku" : "mulut") + ", bukan " + nama;
         msg = "Pastikan Anda memotret " + nama + " sapi. Hasil AI untuk foto ini tidak dipakai.";
@@ -466,7 +511,7 @@
       h += '<img src="' + data.preview + '" alt="Foto ' + label + ' sapi"' + (data._seen ? ' style="animation:none"' : "") + '>';
       data._seen = true;
       if (S.busy) h += '<div class="scan"></div><div class="scan-l"><span class="spinner"></span>' + (ai.ready ? "AI menganalisis foto di HP…" : "Menunggu model AI siap…") + '</div>';
-      else if (data.ai) {
+      else if (data.ai && (data.ok || data.ai.band === "gagal")) {
         var st = badgeTone(data.ai);
         h += '<span class="ai-tag st-' + st + '">' + ic("spark") + ' ' + (data.ai.band === "gagal" ? "Foto ditolak" : (data.ai.sakit ? "Tanda luka" : "Tidak tampak luka") + " · " + pct(data.ai.conf)) + '</span>';
       }
@@ -501,22 +546,25 @@
     var f = ev.target.files && ev.target.files[0];
     if (!f) return;
     if (!/^image\//.test(f.type || "image/")) { toast("Berkas bukan gambar", "err"); return; }
+    if (f.size > MAX_BYTE) { toast("Foto terlalu besar (maks 25 MB)", "err"); return; }
     readFile(f).then(function (url) { analyze(pickArea, url); }).catch(function (e) { toast(e.message, "err"); });
   }
   $("#fileCam").addEventListener("change", onFile);
   $("#fileGal").addEventListener("change", onFile);
+  $("#fileJson").addEventListener("change", function (ev) { var f = ev.target.files && ev.target.files[0]; if (f) importBackup(f); });
 
   function analyze(area, src) {
-    // foto baru: derajat lama untuk area ini dikosongkan agar dipilih ulang
-    if (area === "mulut") { S.liur = null; S.lepuhMulut = null; } else S.lepuhKuku = null;
     S.busy = true; S.aiErr = null;
     var sess = S;
     loadImage(src).then(function (im) {
+      if (im.naturalWidth * im.naturalHeight > MAX_PIKSEL) throw new Error("ukuran foto terlalu besar");
       var rgba = toTensorRGBA(im);
-      var data = { preview: thumb(im, 480, 0.8), foto: thumb(im, 96, 0.6) };
+      var data = { preview: thumb(im, 480, 0.8), foto: thumb(im, 96, 0.6), ok: false };
+      // foto baru: derajat lama untuk area ini dikosongkan agar dipilih ulang
+      if (area === "mulut") { sess.liur = null; sess.lepuhMulut = null; } else sess.lepuhKuku = null;
       sess[area] = data; if (S === sess) renderPeriksa();
       return predict(new Uint8ClampedArray(rgba)).then(function (r) {
-        data.ai = interpret(area, r); data.aiFresh = true;
+        data.ai = interpret(area, r, im); data.aiFresh = true;
         // saran awal: bila AI yakin/ragu "sehat" -> derajat 0. Bila "sakit", pengguna memilih derajat sendiri.
         if (data.ai.band === "yakin" || data.ai.band === "ragu") {
           if (!data.ai.sakit) { if (area === "mulut") { sess.liur = 0; sess.lepuhMulut = 0; } else sess.lepuhKuku = 0; data.aiPrefill = true; }
@@ -524,7 +572,7 @@
         }
       }).catch(function (e) { sess.aiErr = "AI tidak dapat menganalisis foto (" + e.message + "). Isi derajat sendiri."; });
     }).catch(function (e) {
-      toast("Foto tidak dapat dibuka: " + e.message, "err");
+      toast("Foto tidak dapat dibuka: " + e.message + (sess[area] ? ". Foto sebelumnya tetap dipakai." : ""), "err");
     }).then(function () {
       sess.busy = false;
       if (S !== sess || location.hash !== "#periksa") return;
@@ -535,15 +583,31 @@
     renderPeriksa();
   }
 
+  // Model belum bisa menolak foto yang bukan sapi, jadi pengguna memastikan objeknya sebelum hasil AI ditampilkan.
+  function confirmHtml(area) {
+    var nama = area === "mulut" ? "mulut" : "kuku";
+    return '<div class="card confirm" id="confirm"><h3>' + ic("help") + 'Apakah ini foto ' + nama + ' sapi?</h3>' +
+      '<p class="small muted">AI CowCare hanya dilatih dengan foto mulut dan kuku sapi, sehingga belum bisa mengenali foto manusia, hewan lain, atau benda. Hasil AI ditampilkan setelah Anda memastikan.</p>' +
+      '<div class="row"><button class="btn primary" id="okYa">' + ic("check") + 'Ya, ' + nama + ' sapi</button>' +
+      '<button class="btn" id="okTidak">' + ic("refresh") + 'Bukan, foto ulang</button></div></div>';
+  }
+  function bindConfirm(area, render) {
+    var y = $("#okYa"), n = $("#okTidak");
+    if (y) y.onclick = function () { S[area].ok = true; S[area].aiFresh = true; render(); };
+    if (n) n.onclick = function () {
+      S[area] = null; if (area === "mulut") { S.liur = null; S.lepuhMulut = null; } else S.lepuhKuku = null;
+      toast("Foto dihapus. Ambil foto " + (area === "mulut" ? "mulut" : "kuku") + " sapi.", "info"); render();
+    };
+  }
   function reqHtml(items) {
     return '<div class="req">' + items.map(function (x) { return '<span class="' + (x[1] ? "ok" : "") + '">' + (x[1] ? ic("check") : "○") + " " + x[0] + '</span>'; }).join("") + '</div>';
   }
-  function step1Ready() { return !!(S.mulut && S.liur != null && S.lepuhMulut != null && !S.busy); }
+  function step1Ready() { return !!(S.mulut && S.mulut.ok && S.liur != null && S.lepuhMulut != null && !S.busy); }
   function step1Action() {
     return '<button class="btn primary big" id="next1"' + (step1Ready() ? "" : " disabled") + '>Lanjut ' + ic("arrowR") + '</button>' +
-      reqHtml([["Foto", !!S.mulut], ["Analisis AI", !!(S.mulut && !S.busy)], ["Air liur", S.liur != null], ["Lepuh", S.lepuhMulut != null]]);
+      reqHtml([["Foto", !!S.mulut], ["Foto sapi dipastikan", !!(S.mulut && S.mulut.ok)], ["Air liur", S.liur != null], ["Lepuh", S.lepuhMulut != null]]);
   }
-  function step2Ready() { return !!(S.kuku && S.lepuhKuku != null && !S.busy); }
+  function step2Ready() { return !!(S.kuku && S.kuku.ok && S.lepuhKuku != null && !S.busy); }
   function step2Action() {
     return '<button class="btn primary big" id="next2"' + (step2Ready() ? "" : " disabled") + '>Lanjut ' + ic("arrowR") + '</button>' +
       '<button class="btn ghost" id="skip2" style="margin-top:4px"' + (S.busy ? " disabled" : "") + '>' + ic("skip") + 'Lewati foto kuku</button>';
@@ -577,8 +641,10 @@
       h += '<div><h2 class="step-h">Foto mulut sapi <span class="tag">Wajib</span></h2>' +
         '<p class="muted small">Buka sedikit mulut sapi, foto dari dekat di tempat terang.</p></div>';
       h += '<div>' + photoBlock("mulut", S.mulut) + (S.mulut ? "" : sampleBlock("mulut")) + '</div>';
-      if (S.mulut && S.mulut.ai) { h += badgeHtml(S.mulut.ai, S.mulut.aiFresh); S.mulut.aiFresh = false; }
-      if (S.mulut && !S.busy) {
+      var m1 = S.mulut;
+      if (m1 && m1.ai && (m1.ok || m1.ai.band === "gagal")) { h += badgeHtml(m1.ai, m1.aiFresh); m1.aiFresh = false; }
+      if (m1 && !S.busy && !m1.ok) h += confirmHtml("mulut") + sampleBlock("mulut");
+      if (m1 && !S.busy && m1.ok) {
         var hintSakit = S.mulut.ai && S.mulut.ai.sakit && S.mulut.ai.band !== "gagal" && S.mulut.ai.band !== "rendah";
         h += '<div class="q" id="qLiur"><div class="q-h"><h3>' + ic("drop") + ' Seberapa banyak air liurnya?</h3><span class="xs">bobot 61,2%</span></div>' + optsHtml("liur", LIUR, S.liur) + '</div>';
         h += '<div class="q"><div class="q-h"><h3>' + ic("blister") + ' Lepuh di gusi atau lidah?</h3><span class="xs">bobot 25,6%</span></div>' + optsHtml("lepuhMulut", LEPUH, S.lepuhMulut) + '</div>';
@@ -588,7 +654,7 @@
       }
       h += '<div class="actionbar" id="actionbar">' + step1Action() + '</div>';
       paint(key, h, function () {
-        bindPhoto("mulut"); bindAction();
+        bindPhoto("mulut"); bindAction(); bindConfirm("mulut", renderPeriksa);
         bindOpts(function (n, v) { S[n] = parseInt(v, 10); if (S.mulut) S.mulut.aiPrefill = false; refreshAction(step1Action); });
       });
     } else if (S.step === 2) {
@@ -606,11 +672,13 @@
       h += '<div><h2 class="step-h">Foto kuku <span class="tag opt">Opsional</span></h2>' +
         '<p class="muted small">Bersihkan lumpur dulu. Foto sela kuku dan pinggiran atas kuku dari dekat.</p></div>';
       h += '<div>' + photoBlock("kuku", S.kuku) + sampleBlock("kuku") + '</div>';
-      if (S.kuku && S.kuku.ai) { h += badgeHtml(S.kuku.ai, S.kuku.aiFresh); S.kuku.aiFresh = false; }
-      if (S.kuku && !S.busy) h += '<div class="q" id="qKuku"><div class="q-h"><h3>' + ic("blister") + ' Lepuh di kuku?</h3><span class="xs">digabung ke lepuh terparah</span></div>' + optsHtml("lepuhKuku", LEPUH, S.lepuhKuku) + '</div>';
+      var k2 = S.kuku;
+      if (k2 && k2.ai && (k2.ok || k2.ai.band === "gagal")) { h += badgeHtml(k2.ai, k2.aiFresh); k2.aiFresh = false; }
+      if (k2 && !S.busy && !k2.ok) h += confirmHtml("kuku");
+      if (k2 && !S.busy && k2.ok) h += '<div class="q" id="qKuku"><div class="q-h"><h3>' + ic("blister") + ' Lepuh di kuku?</h3><span class="xs">digabung ke lepuh terparah</span></div>' + optsHtml("lepuhKuku", LEPUH, S.lepuhKuku) + '</div>';
       h += '<div class="actionbar" id="actionbar">' + step2Action() + '</div>';
       paint(key + "-kuku", h, function () {
-        bindPhoto("kuku"); bindAction();
+        bindPhoto("kuku"); bindAction(); bindConfirm("kuku", renderPeriksa);
         bindOpts(function (n, v) { S[n] = parseInt(v, 10); refreshAction(step2Action); });
       });
     } else {
@@ -743,16 +811,29 @@
       var txt = summaryText(r, ctx);
       if (Android && Android.shareText) Android.shareText(txt);
       else if (navigator.share) navigator.share({ text: txt }).catch(function () {});
-      else window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
+      else if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () {
+        toast("Ringkasan disalin. Tempel di WhatsApp atau SMS ke dokter hewan.");
+      }, function () { toast("Tidak bisa menyalin ringkasan otomatis", "err"); });
+      else toast("Browser ini tidak mendukung berbagi", "err");
     };
   }
 
   // ---------- layar: riwayat ----------
-  var histFilter = "semua";
+  var histFilter = "semua", histSapi = "*";
+  function sapiKey(e) { return e.sapi ? e.sapi.trim().toLowerCase() : ""; }
+  function bySapi(h) { return histSapi === "*" ? h : h.filter(function (e) { return sapiKey(e) === histSapi; }); }
+  function sapiPicker(all) {
+    var names = {}, order = [];
+    all.forEach(function (e) { var k = sapiKey(e); if (!(k in names)) { names[k] = e.sapi ? e.sapi.trim() : "Tanpa nama"; order.push(k); } });
+    if (histSapi !== "*" && !(histSapi in names)) histSapi = "*";
+    if (order.length < 2) return "";
+    return '<div class="sapi-pick"><label class="f" for="fSapi">Tampilkan sapi</label><select id="fSapi"><option value="*">Semua sapi (' + all.length + ')</option>' +
+      order.map(function (k) { return '<option value="' + esc(k) + '"' + (k === histSapi ? " selected" : "") + '>' + esc(names[k]) + '</option>'; }).join("") + '</select></div>';
+  }
   function viewRiwayat() {
-    var h = history();
+    var all = history(), picker = sapiPicker(all), h = bySapi(all);
     setTitle("Riwayat", false, h.length ? h.length + " pemeriksaan" + (consent() === "setuju" ? " tersimpan di HP" : " (sementara)") : ""); setTab("riwayat");
-    if (!h.length) {
+    if (!all.length) {
       paint("riwayat-kosong", '<div class="empty"><div class="art">' + ic("list") + '</div><h3>Belum ada pemeriksaan</h3>' +
         '<p class="muted small">Simpan hasil pemeriksaan untuk melihat tren skor dan kelompok risiko kandang di sini.</p>' +
         '<button class="btn primary" id="emptyGo" style="margin-top:14px">' + ic("scan") + 'Periksa Sapi</button></div>',
@@ -761,24 +842,26 @@
     }
     var html = "";
     var cnt = { merah: 0, kuning: 0, hijau: 0 }; h.forEach(function (e) { cnt[e.status]++; });
-    // kelompok risiko kandang (K-means)
-    if (h.length >= 5) {
-      var pts = h.map(function (e) { return [e.S / 100, e.jarak === "jauh" ? 0 : 1]; });
+    // kelompok risiko kandang (K-means) selalu dari semua sapi
+    if (all.length >= 5) {
+      var pts = all.map(function (e) { return [e.S / 100, e.jarak === "jauh" ? 0 : 1]; });
       var km = window.CowScore.kmeans(pts, 3);
       var lastC = km.assign[0], cS = km.centroids[lastC][0] * 100;
       var lab = window.CowScore.labelKelompok(cS);
       var stc = lab === "Aman" ? "hijau" : lab === "Waspada" ? "kuning" : "merah";
       var n = km.assign.filter(function (a) { return a === lastC; }).length;
+      var hTot = all.length;
       html += '<div class="card st-' + stc + '"><div class="cluster"><span class="cv">' + ic("group") + '</span><div><div class="xs">Kelompok risiko kandang</div>' +
-        '<div style="font-size:19px;font-weight:750;color:var(--cd)">' + lab + '</div><div class="xs">Pemeriksaan terakhir masuk kelompok rata-rata S ' + num(cS.toFixed(1)) + '% (' + n + ' dari ' + h.length + ')</div></div></div>';
+        '<div style="font-size:19px;font-weight:750;color:var(--cd)">' + lab + '</div><div class="xs">Pemeriksaan terakhir masuk kelompok rata-rata S ' + num(cS.toFixed(1)) + '% (' + n + ' dari ' + hTot + ')</div></div></div>';
     } else {
       html += '<div class="card"><div class="cluster"><span class="cv" style="background:var(--g50);color:var(--g700)">' + ic("group") + '</span><div><div class="xs">Kelompok risiko kandang</div>' +
-        '<div style="font-weight:700">Butuh ' + (5 - h.length) + ' pemeriksaan lagi</div><div class="conf" style="margin-top:6px"><i style="width:' + (h.length / 5 * 100) + '%;background:var(--g700)"></i></div>' +
-        '<div class="xs">Minimal 5 data (sekarang ' + h.length + ')</div></div></div>';
+        '<div style="font-weight:700">Butuh ' + (5 - all.length) + ' pemeriksaan lagi</div><div class="conf" style="margin-top:6px"><i style="width:' + (all.length / 5 * 100) + '%;background:var(--g700)"></i></div>' +
+        '<div class="xs">Minimal 5 data (sekarang ' + all.length + ')</div></div></div>';
     }
     html += '<div class="stats3"><div class="st-merah"><b>' + cnt.merah + '</b><span>Suspek tinggi</span></div><div class="st-kuning"><b>' + cnt.kuning + '</b><span>Waspada</span></div>' +
       '<div class="st-hijau"><b>' + cnt.hijau + '</b><span>Risiko rendah</span></div></div>' +
-      (h.length >= 5 ? '<p class="xs" style="margin:10px 0 0">Dihitung dengan K-means (K = 3) dari skor S dan kategori jarak.</p>' : "") + '</div>';
+      (all.length >= 5 ? '<p class="xs" style="margin:10px 0 0">Kelompok dihitung dengan K-means (K = 3) dari skor S dan kategori jarak semua sapi.' + (histSapi !== "*" ? " Jumlah status hanya untuk sapi terpilih." : "") + '</p>' : "") + '</div>';
+    html = picker + html;
     // tren
     var last = h.slice(0, 12).reverse();
     html += '<div class="card"><h3>' + ic("trend") + 'Tren skor S <span class="xs" style="margin-left:auto;font-weight:500">' + last.length + ' terakhir</span></h3>';
@@ -807,11 +890,12 @@
     paint("riwayat", html, function () {
       bindItems();
       $("#csv").onclick = exportCsv;
+      var fs = $("#fSapi"); if (fs) fs.onchange = function () { histSapi = fs.value; viewRiwayat(); };
       $$("[data-f]").forEach(function (b) {
         b.onclick = function () {
           histFilter = b.dataset.f;
           $$("[data-f]").forEach(function (x) { x.classList.toggle("on", x === b); });
-          $("#histList").innerHTML = listGrouped(history()); bindItems();
+          $("#histList").innerHTML = listGrouped(bySapi(history())); bindItems();
         };
       });
     });
@@ -827,18 +911,53 @@
     });
     return out + '</div>';
   }
+  // Sel yang diawali =, +, -, @ dapat dibaca sebagai rumus oleh Excel/Sheets, jadi diberi awalan petik.
+  function csvCell(v) {
+    v = String(v == null ? "" : v);
+    if (/^[\s\u0000-\u001f]*[=+\-@]/.test(v)) v = "'" + v;
+    return /[",\n\r;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function saveFile(name, text, mime) {
+    if (Android && Android.saveFile) { Android.saveFile(name, text, mime); toast("Menyimpan " + name); return; }
+    if (Android && Android.saveCsv && mime === "text/csv") { Android.saveCsv(name, text); toast("Menyimpan " + name); return; }
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([mime === "text/csv" ? "\ufeff" + text : text], { type: mime }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    toast("Diunduh: " + name);
+  }
+  function exportBackup() {
+    var h = history();
+    if (!h.length) { toast("Belum ada riwayat untuk dicadangkan", "info"); return; }
+    saveFile("cowcare_cadangan_" + new Date().toISOString().slice(0, 10) + ".json",
+      JSON.stringify({ app: "cowcare", format: 1, dibuat: new Date().toISOString(), riwayat: h }), "application/json");
+  }
+  function importBackup(f) {
+    if (f.size > MAX_BYTE) { toast("Berkas cadangan terlalu besar", "err"); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      var data; try { data = JSON.parse(String(fr.result).replace(/^\ufeff/, "")); } catch (e) { toast("Berkas bukan cadangan CowCare", "err"); return; }
+      var raw = Array.isArray(data) ? data : data && data.app === "cowcare" && Array.isArray(data.riwayat) ? data.riwayat : null;
+      if (!raw) { toast("Berkas bukan cadangan CowCare", "err"); return; }
+      var masuk = cleanList(raw), cur = history(), ada = {};
+      cur.forEach(function (e) { ada[e.t] = 1; });
+      var baru = masuk.filter(function (e) { if (ada[e.t]) return false; ada[e.t] = 1; return true; });
+      if (!baru.length) { toast("Tidak ada pemeriksaan baru di cadangan", "info"); return; }
+      var gabung = cur.concat(baru).sort(function (a, b) { return b.t - a.t; });
+      if (!saveHistory(gabung)) return;
+      toast(baru.length + " pemeriksaan dipulihkan" + (raw.length > masuk.length ? " (" + (raw.length - masuk.length) + " rusak dilewati)" : ""));
+      if (location.hash === "#info") viewInfo();
+    };
+    fr.onerror = function () { toast("Gagal membaca berkas", "err"); };
+    fr.readAsText(f);
+  }
   function exportCsv() {
     var rows = [["tanggal", "sapi", "S_persen", "H_persen", "status", "kategori_jarak", "derajat_liur", "lepuh_mulut", "lepuh_kuku", "ai_mulut", "ai_kuku", "dikoreksi_pengguna"]];
     history().forEach(function (e) {
       rows.push([new Date(e.t).toISOString(), e.sapi || "", e.S, e.H, e.status, e.jarak, e.liur, e.lepuhMulut, e.lepuhKuku == null ? "" : e.lepuhKuku, e.aiMulut, e.aiKuku, e.dikoreksi ? "ya" : "tidak"]);
     });
-    var csv = rows.map(function (r) { return r.map(function (v) { v = String(v == null ? "" : v); return /[",\n;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(","); }).join("\n");
-    var name = "cowcare_riwayat_" + new Date().toISOString().slice(0, 10) + ".csv";
-    if (Android && Android.saveCsv) { Android.saveCsv(name, csv); toast("Menyimpan " + name); return; }
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" }));
-    a.download = name; document.body.appendChild(a); a.click(); a.remove();
-    toast("Diunduh: " + name);
+    var csv = rows.map(function (r) { return r.map(csvCell).join(","); }).join("\n");
+    saveFile("cowcare_riwayat_" + new Date().toISOString().slice(0, 10) + ".csv", csv, "text/csv");
   }
 
   // ---------- layar: info & pengaturan ----------
@@ -857,16 +976,20 @@
       '<div class="formula">S = 0,612·liur + 0,256·lepuh + 0,132·jarak<br>H = 95 − 0,45·S (50–95%)</div>' +
       '<p>Merah bila S ≥ 60%, Kuning bila S ≥ 30% (batas sementara, menunggu validasi dokter hewan). Bila kandang lebih dari 5 km dari kasus aktif, S = 0% dan H = 95% (Aturan Mutlak), tetapi CowCare tetap memberi peringatan bila gejala terlihat.</p>');
     h += acc("ai", "spark", "Peran AI dan batasnya", '<p>AI (MobileNetV2, 4 kelas: mulut/kuku sakit atau sehat) membaca foto langsung di HP. Keyakinan ≥ 80% disebut yakin, 60–80% ragu, di bawahnya tidak yakin. Foto ditolak bila terlalu gelap, terlalu terang, buram, atau salah area.</p>' +
-      '<p><b>Keterbatasan:</b> model uji coba dilatih dari 1.138 foto (akurasi uji 96,8%, recall kelas sakit 96,6%). Pada foto sapi sehat dari sumber lain, AI sering keliru menandainya sebagai luka. Karena itu skor selalu memakai derajat yang Anda pilih.</p>');
+      '<p><b>Keterbatasan:</b> model uji coba dilatih dari 1.138 foto (akurasi uji 96,8%, recall kelas sakit 96,6%). Pada foto sapi sehat dari sumber lain, AI sering keliru menandainya sebagai luka. Karena itu skor selalu memakai derajat yang Anda pilih.</p>' +
+      '<p>AI juga belum bisa menolak foto yang bukan sapi (mis. foto manusia atau benda). Karena itu CowCare meminta Anda memastikan objek foto sebelum hasil AI ditampilkan.</p>');
     h += acc("sop", "book", "SOP PMK", '<p>' + DISCLAIMER + '</p><ul><li>Tanda PMK: demam, air liur berlebihan, lepuh di mulut, lidah, gusi, sela kuku, atau puting, sapi pincang dan enggan makan.</li>' +
       '<li>PMK menular cepat lewat kontak langsung, orang, kendaraan, dan peralatan.</li><li>Pisahkan sapi bergejala, jangan menjual atau memindahkan sapi.</li><li>Laporkan ke petugas kesehatan hewan setempat.</li></ul>');
-    h += '<div class="card" style="margin-top:14px"><h3>' + ic("stetho") + 'Nomor dokter hewan / petugas</h3><div class="input">' + ic("phone") +
+    h += '<div class="card" style="margin-top:14px"><h3>' + ic("stetho") + 'Nomor dokter hewan / petugas</h3><label class="f" for="vetTel" style="margin-top:4px">Nomor telepon</label><div class="input">' + ic("phone") +
       '<input type="tel" id="vetTel" inputmode="tel" placeholder="mis. 0812xxxxxxx" value="' + esc(tel) + '"></div>' +
       '<div class="row" style="margin-top:10px"><button class="btn primary" id="saveTel">' + ic("save") + 'Simpan nomor</button>' +
       (tel ? '<button class="btn" id="testTel">' + ic("phone") + 'Telepon</button>' : "") + '</div><div class="hint">Disimpan hanya di HP ini. Dipakai tombol Telepon di layar hasil.</div></div>';
     h += '<div class="card"><h3>' + ic("db") + 'Riwayat pemeriksaan</h3><div class="toggle" id="tgWrap"><div class="tx"><b>Simpan riwayat di HP</b><div class="small muted">' +
       (c === "setuju" ? "Tersimpan di HP ini saja" + (n ? " (" + n + " data)" : "") + ". Foto tidak dikirim ke mana pun." : "Mati: riwayat hanya di memori" + (n ? " (" + n + " data)" : "") + " dan hilang saat aplikasi ditutup.") +
       '</div></div><button class="switch" id="tgSimpan" role="switch" aria-checked="' + (c === "setuju") + '" aria-label="Simpan riwayat di HP"></button></div>' +
+      '<div class="row" style="margin-top:14px"><button class="btn" id="cadang"' + (n ? "" : " disabled") + '>' + ic("download") + 'Unduh cadangan</button>' +
+      '<button class="btn" id="pulih">' + ic("refresh") + 'Pulihkan</button></div>' +
+      '<div class="hint">Cadangan (.json) berisi seluruh riwayat dan foto kecil. Simpan di tempat aman sebelum mengganti HP atau menghapus data browser.</div>' +
       '<button class="btn danger" id="hapus" style="margin-top:14px"' + (n ? "" : " disabled") + '>' + ic("trash") + 'Hapus seluruh riwayat</button></div>';
     h += '<p class="ver">CowCare ' + APP_VERSION + ' · Kelompok 13 PPKBP<br>Tanpa login · Tanpa GPS · Foto tidak diunggah</p>';
     paint("info", h, function () {
@@ -890,13 +1013,17 @@
       if (tt) tt.onclick = function () { var t = store.get("vetTel", ""); if (Android && Android.dial) Android.dial(t); else location.href = "tel:" + t.replace(/[^0-9+]/g, ""); };
       if (focusTel) { focusTel = false; setTimeout(function () { inp.scrollIntoView({ behavior: "smooth", block: "center" }); inp.focus(); }, 350); }
       function toggleSimpan() {
-        if (consent() === "setuju") { memHistory = store.get("riwayat", []); store.del("riwayat"); store.set("consent", "tolak"); toast("Riwayat dipindah ke memori saja", "info"); }
-        else { store.set("consent", "setuju"); if (!store.set("riwayat", memHistory)) toast("Memori HP penuh", "err"); else toast("Riwayat kini disimpan di HP"); }
+        if (consent() === "setuju") { memHistory = readHistory(); store.del("riwayat"); store.set("consent", "tolak"); toast("Riwayat dipindah ke memori saja", "info"); }
+        else if (!store.set("riwayat", memHistory)) toast("Memori HP penuh. Riwayat tetap di memori; unduh cadangan atau hapus sebagian data.", "err");
+        else if (!store.set("consent", "setuju")) { store.del("riwayat"); toast("Memori HP penuh, penyimpanan tidak dapat diaktifkan", "err"); }
+        else toast("Riwayat kini disimpan di HP");
         var sw = $("#tgSimpan"); sw.setAttribute("aria-checked", consent() === "setuju");
         setTimeout(function () { if (location.hash === "#info") viewInfo(); }, 280);
       }
       $("#tgSimpan").onclick = function (ev) { ev.stopPropagation(); toggleSimpan(); };
       $("#tgWrap").onclick = toggleSimpan;
+      $("#cadang").onclick = exportBackup;
+      $("#pulih").onclick = function () { var fi = $("#fileJson"); fi.value = ""; fi.click(); };
       twoTap($("#hapus"), "Tekan lagi untuk menghapus semua", function () { store.del("riwayat"); memHistory = []; toast("Seluruh riwayat dihapus"); viewInfo(); });
     });
   }

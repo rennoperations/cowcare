@@ -1,7 +1,7 @@
 /* Service worker: menyimpan aplikasi dan model AI supaya CowCare tetap jalan tanpa sinyal.
    File aplikasi (html/js/css) diambil dari internet dulu bila ada sinyal, supaya pembaruan langsung terlihat;
    bila tidak ada sinyal, dipakai salinan yang tersimpan. Model dan gambar langsung dari simpanan. */
-var CACHE = "cowcare-v1.1.0";
+var PREFIX = "cowcare-", CACHE = PREFIX + "v1.2.0";
 var ASSETS = [
   "./", "index.html", "styles.css", "app.js", "scoring.js", "engine.js", "worker.js",
   "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
@@ -15,7 +15,7 @@ self.addEventListener("install", function (e) {
 
 self.addEventListener("activate", function (e) {
   e.waitUntil(caches.keys().then(function (keys) {
-    return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+    return Promise.all(keys.filter(function (k) { return k.indexOf(PREFIX) === 0 && k !== CACHE; }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
 });
 
@@ -35,12 +35,12 @@ self.addEventListener("fetch", function (e) {
   if (kodeApp && url.origin === self.location.origin) {
     // internet dulu, simpanan bila offline
     e.respondWith(fetch(req, { cache: "no-cache" }).then(function (res) { return simpan(req, res); }).catch(function () {
-      return caches.match(req, { ignoreSearch: true }).then(function (hit) { return hit || caches.match("index.html"); });
+      return caches.match(req, { ignoreSearch: true }).then(function (hit) { return hit || (req.mode === "navigate" ? caches.match("index.html") : Response.error()); });
     }));
     return;
   }
   // model dan gambar: simpanan dulu
   e.respondWith(caches.match(req, { ignoreSearch: true }).then(function (hit) {
     return hit || fetch(req).then(function (res) { return simpan(req, res); });
-  }).catch(function () { return caches.match("index.html"); }));
+  }).catch(function () { return Response.error(); }));
 });

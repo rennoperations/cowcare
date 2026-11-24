@@ -2,6 +2,8 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CowCare – Triase Dini PMK</title>
 <meta name="description" content="CowCare: triase dini penyakit mulut dan kuku (PMK) pada sapi, berjalan offline di HP.">
@@ -36,6 +38,7 @@
 
 <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
 <input type="file" id="fileGal" accept="image/*" hidden>
+<input type="file" id="fileJson" accept=".json,application/json" hidden>
 <canvas id="cv" width="224" height="224" hidden></canvas>
 
 <script src="engine.js"></script>
