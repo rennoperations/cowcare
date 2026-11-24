@@ -28,7 +28,7 @@
     var hasil = Object.assign({}, r, {
       status: r.status, S: lim(r.S, 0, 100, 0), H: lim(r.H, 0, 100, 0), lepuhDerajat: lim(r.lepuhDerajat, 0, 3, 0),
       aturanMutlak: !!r.aturanMutlak, peringatanGejala: !!r.peringatanGejala, rujuk: !!r.rujuk,
-      kontribusi: { liur: lim(k.liur, 0, 61.2, 0), lepuh: lim(k.lepuh, 0, 25.6, 0), jarak: lim(k.jarak, 0, 13.2, 0) }
+      kontribusi: { liur: lim(k.liur, 0, 100, 0), lepuh: lim(k.lepuh, 0, 100, 0), jarak: lim(k.jarak, 0, 100, 0) }
     });
     return Object.assign({}, e, {
       t: t, sapi: str(e.sapi, 30), S: hasil.S, H: hasil.H, status: e.status, jarak: JARAK_OK[e.jarak] ? e.jarak : "tidak_tahu",
@@ -747,8 +747,8 @@
     h += '<div class="card st-' + r.status + '"><h3>' + ic("list") + 'Saran tindakan</h3><ol class="saran">' + SARAN[r.status].map(function (s) { return "<li><span>" + s + "</span></li>"; }).join("") + '</ol></div>';
     var k = r.kontribusi;
     h += '<div class="card"><h3>' + ic("chart") + 'Mengapa hasilnya begini?</h3><div class="bars">' +
-      [["Air liur", k.liur, 61.2, "derajat " + ctx.liur], ["Lepuh terparah", k.lepuh, 25.6, "derajat " + r.lepuhDerajat + (ctx.lepuhKuku != null && ctx.lepuhKuku >= ctx.lepuhMulut && r.lepuhDerajat ? " (kuku)" : r.lepuhDerajat ? " (mulut)" : "")],
-       ["Jarak kasus", k.jarak, 13.2, ctx.jarak === "jauh" ? "Jauh" : ctx.jarak === "dekat" ? "Dekat" : "Tidak tahu"]].map(function (b) {
+      [["Air liur", k.liur, 100 * CowScore.BOBOT.liur, "derajat " + ctx.liur], ["Lepuh terparah", k.lepuh, 100 * CowScore.BOBOT.lepuh, "derajat " + r.lepuhDerajat + (ctx.lepuhKuku != null && ctx.lepuhKuku >= ctx.lepuhMulut && r.lepuhDerajat ? " (kuku)" : r.lepuhDerajat ? " (mulut)" : "")],
+       ["Jarak kasus", k.jarak, 100 * CowScore.BOBOT.jarak, ctx.jarak === "jauh" ? "Jauh" : ctx.jarak === "dekat" ? "Dekat" : "Tidak tahu"]].map(function (b) {
         return '<div class="b"><div class="bl"><span><b>' + b[0] + '</b> · ' + b[3] + '</span><span><span class="val">' + num(b[1].toFixed(1)) + '</span> / ' + num(b[2]) + '</span></div>' +
           '<div class="track"><span class="max"></span><i style="width:' + (b[1] / b[2] * 100) + '%"></i></div></div>';
       }).join("") + '</div>' +
