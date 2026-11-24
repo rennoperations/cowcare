@@ -880,7 +880,7 @@
       inp.oninput = function () { sb.classList.remove("done"); sb.innerHTML = ic("save") + "Simpan nomor"; };
       sb.onclick = function () {
         var v = inp.value.trim();
-        if (v && !/^\+?[0-9(][0-9\s()-]{5,}$/.test(v)) { toast("Nomor tidak valid. Gunakan angka, mis. 0812…", "err"); inp.focus(); return; }
+        if (v && (!/^\+?[0-9(][0-9\s()-]{5,}$/.test(v) || v.replace(/\D/g, "").length < 6)) { toast("Nomor tidak valid. Gunakan angka, mis. 0812…", "err"); inp.focus(); return; }
         store.set("vetTel", v); sb.classList.add("done"); sb.innerHTML = ic("check") + "Tersimpan";
         toast(v ? "Nomor dokter hewan tersimpan" : "Nomor dihapus");
         var back = v && telReturn === "#hasil" && S && S.hasil ? "#hasil" : null; telReturn = null;
