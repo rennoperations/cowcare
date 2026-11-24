@@ -27,6 +27,23 @@ st = {}
 for i, r in enumerate(rows):
     if r['stem'] in st: u(i, st[r['stem']])
     else: st[r['stem']] = i
+# 4) sesi rekaman cow-hooves: frame dari video yang sama atau VideoCapture berselang <=120 dtk = satu sesi
+import re, datetime
+caps = []
+for i, r in enumerate(rows):
+    n = os.path.basename(r['path'])
+    v = re.match(r'(\d{8}_\d{6}_mp4)-', n)
+    if v: caps.append((v.group(1), i)); continue
+    t = re.match(r'VideoCapture_(\d{8}-\d{6})', n)
+    if t: caps.append((datetime.datetime.strptime(t.group(1), '%Y%m%d-%H%M%S'), i))
+vid = {}
+for k, i in caps:
+    if isinstance(k, str):
+        if k in vid: u(i, vid[k])
+        else: vid[k] = i
+ts = sorted((k, i) for k, i in caps if not isinstance(k, str))
+for (t0, a), (t1, b) in zip(ts, ts[1:]):
+    if (t1 - t0).total_seconds() <= 120: u(a, b)
 gid = {}
 for i in range(N): rows[i]['group'] = gid.setdefault(f(i), len(gid))
 groups = collections.defaultdict(list)
@@ -68,7 +85,7 @@ for i in sorted(keep):
     if r.get('whole'): continue
     for _ in range(20):  # satu crop latar tanpa kotak apa pun -> bukan_target
         s = random.uniform(0.25, 0.5) * min(W, Hh); x0 = random.uniform(0, W - s); y0 = random.uniform(0, Hh - s); bb = (x0, y0, x0 + s, y0 + s)
-        if all(overlap(bb, b) < 0.05 * s * s for b in boxes):
+        if all(overlap(bb, b) < min(0.05 * s * s, 0.1 * (b[2] - b[0]) * (b[3] - b[1])) for b in boxes):
             d = f'{OUT}/{sp}/bukan_target'; os.makedirs(d, exist_ok=True); fn = f'{d}/{i:05d}_bg.jpg'
             im.crop(tuple(int(v) for v in bb)).resize((224, 224), Image.BICUBIC).save(fn, quality=92); add(fn, r, 'bukan_target', ''); break
 with open(f'{OUT}/split_manifest.csv', 'w', newline='') as fo:
