@@ -738,7 +738,7 @@
       var tel = store.get("vetTel", "");
       if (Android && Android.dial) Android.dial(tel); else location.href = "tel:" + tel.replace(/[^0-9+]/g, "");
     };
-    if (sv) sv.onclick = function () { focusTel = true; go("#info"); };
+    if (sv) sv.onclick = function () { focusTel = true; telReturn = location.hash === "#hasil" ? "#hasil" : null; go("#info"); };
     if (s) s.onclick = function () {
       var txt = summaryText(r, ctx);
       if (Android && Android.shareText) Android.shareText(txt);
@@ -842,7 +842,7 @@
   }
 
   // ---------- layar: info & pengaturan ----------
-  var focusTel = false, openAcc = { panduan: true };
+  var focusTel = false, telReturn = null, openAcc = { panduan: true };
   function acc(id, icon, title, body) {
     return '<div class="acc' + (openAcc[id] ? " open" : "") + '" data-acc="' + id + '"><button type="button" aria-expanded="' + !!openAcc[id] + '"><span class="ai">' + ic(icon) + '</span>' + title +
       '<span class="chev">' + ic("chevD") + '</span></button><div class="body"><div><div class="inner">' + body + '</div></div></div></div>';
@@ -883,7 +883,8 @@
         if (v && !/^\+?[0-9(][0-9\s()-]{5,}$/.test(v)) { toast("Nomor tidak valid. Gunakan angka, mis. 0812…", "err"); inp.focus(); return; }
         store.set("vetTel", v); sb.classList.add("done"); sb.innerHTML = ic("check") + "Tersimpan";
         toast(v ? "Nomor dokter hewan tersimpan" : "Nomor dihapus");
-        setTimeout(function () { if (location.hash === "#info") viewInfo(); }, 900);
+        var back = v && telReturn === "#hasil" && S && S.hasil ? "#hasil" : null; telReturn = null;
+        setTimeout(function () { if (location.hash !== "#info") return; if (back) { navDir = "back"; go(back); } else viewInfo(); }, 900);
       };
       var tt = $("#testTel");
       if (tt) tt.onclick = function () { var t = store.get("vetTel", ""); if (Android && Android.dial) Android.dial(t); else location.href = "tel:" + t.replace(/[^0-9+]/g, ""); };
