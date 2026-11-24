@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +40,9 @@ public class MainActivity extends Activity {
     static final String HOST = "appassets.androidplatform.net";
     static final String START_URL = "https://" + HOST + "/index.html";
     private static final int REQ_FILE = 41;
+    private static final int REQ_SAVE = 42;
     private static final int MAX_FILE_CHARS = 20 * 1024 * 1024;
+    private String pendingSave;
 
     private WebView web;
     private ValueCallback<Uri[]> pendingChooser;
@@ -194,6 +197,20 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_SAVE) {
+            String content = pendingSave;
+            pendingSave = null;
+            Uri dest = data == null ? null : data.getData();
+            if (resultCode != RESULT_OK || dest == null || content == null) return;
+            try (OutputStream out = getContentResolver().openOutputStream(dest)) {
+                if (out == null) throw new IOException("stream");
+                out.write(content.getBytes(StandardCharsets.UTF_8));
+                Toast.makeText(this, "Cadangan disimpan", Toast.LENGTH_SHORT).show();
+            } catch (IOException e) {
+                Toast.makeText(this, "Gagal menyimpan cadangan", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
         if (requestCode != REQ_FILE || pendingChooser == null) return;
         Uri[] result = null;
         if (resultCode == RESULT_OK) {
@@ -234,6 +251,23 @@ public class MainActivity extends Activity {
             if (!csv && !"application/json".equals(mime)) return;
             if (content == null || content.length() > MAX_FILE_CHARS) return;
             String safe = name == null ? (csv ? "cowcare.csv" : "cowcare.json") : name.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (!csv) {
+                // cadangan disimpan lewat pemilih lokasi Android, bukan dibagikan
+                Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                save.addCategory(Intent.CATEGORY_OPENABLE);
+                save.setType(mime);
+                save.putExtra(Intent.EXTRA_TITLE, safe);
+                runOnUiThread(() -> {
+                    pendingSave = content;
+                    try { startActivityForResult(save, REQ_SAVE); } catch (ActivityNotFoundException e) {
+                        pendingSave = null;
+                        Toast.makeText(MainActivity.this, "Tidak ada aplikasi penyimpan berkas", Toast.LENGTH_LONG).show();
+                    }
+                });
+                return;
+            }
+            // nama unik per ekspor agar izin URI ekspor sebelumnya tidak ikut membaca isi baru
+            safe = System.currentTimeMillis() + "_" + safe;
             try {
                 File dir = new File(getCacheDir(), SharedFileProvider.DIR);
                 if (!dir.exists() && !dir.mkdirs()) throw new IOException("mkdir");
