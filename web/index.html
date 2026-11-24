@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CowCare – Triase Dini PMK</title>
 <meta name="description" content="CowCare: triase dini penyakit mulut dan kuku (PMK) pada sapi, berjalan offline di HP.">
-<meta name="theme-color" content="#2e6b34">
+<meta name="theme-color" content="#1f5a2c">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -13,20 +13,25 @@
 </head>
 <body>
 <div id="app">
-  <header class="topbar">
-    <button class="back" id="btnBack" aria-label="Kembali" hidden>&#8592;</button>
-    <h1 id="title">CowCare</h1>
-    <span class="net" id="netBadge" title="Status koneksi"></span>
+  <header class="topbar" id="topbar">
+    <button class="iconbtn back" id="btnBack" aria-label="Kembali" hidden></button>
+    <div class="titles">
+      <h1 id="title">CowCare</h1>
+      <div class="subtitle" id="subtitle"></div>
+    </div>
+    <span class="net" id="netBadge" title="Status model dan koneksi" hidden></span>
   </header>
 
   <main id="view" tabindex="-1"></main>
 
-  <nav class="bottomnav" id="nav" aria-label="Menu utama">
-    <a href="#beranda" data-tab="beranda"><span class="ico" aria-hidden="true">&#8962;</span>Beranda</a>
-    <a href="#periksa" data-tab="periksa"><span class="ico" aria-hidden="true">&#128247;</span>Periksa</a>
-    <a href="#riwayat" data-tab="riwayat"><span class="ico" aria-hidden="true">&#128203;</span>Riwayat</a>
-    <a href="#info" data-tab="info"><span class="ico" aria-hidden="true">&#9432;</span>Info</a>
+  <nav class="bottomnav" id="nav" aria-label="Menu utama" hidden>
+    <a href="#beranda" data-tab="beranda"><span class="ico" data-icon="home" aria-hidden="true"></span><span>Beranda</span></a>
+    <a href="#periksa" data-tab="periksa"><span class="ico" data-icon="scan" aria-hidden="true"></span><span>Periksa</span></a>
+    <a href="#riwayat" data-tab="riwayat"><span class="ico" data-icon="list" aria-hidden="true"></span><span>Riwayat</span></a>
+    <a href="#info" data-tab="info"><span class="ico" data-icon="info" aria-hidden="true"></span><span>Info</span></a>
   </nav>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 </div>
 
 <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
