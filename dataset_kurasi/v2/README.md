@@ -15,14 +15,14 @@ Foto tidak di-commit; unduh sumbernya lalu jalankan skrip dari folder kerja yang
 ## Langkah
 
 1. `python3 embed2.py` - embedding MobileNetV2 ImageNet + pHash 16x16 semua foto (`rows2.json`, `emb2.npy`).
-2. `python3 build2.py` - kelompok = klaster embedding (cosine 0,15) ∪ near-duplicate pHash (≤20) ∪ stem Roboflow yang sama (salinan augmentasi)
+2. `OUT=ds3 python3 build2.py` - kelompok = klaster embedding (cosine 0,15) ∪ near-duplicate pHash (≤20) ∪ stem Roboflow yang sama (salinan augmentasi)
    ∪ sesi rekaman cow-hooves (frame satu video mp4, atau VideoCapture berselang ≤120 dtk).
    Split 70/15/15 per kelompok, maks 30 foto/kelompok di train dan 8 di val/test. Crop tiap kotak dengan konteks 1,3-2x
-   (foto sehat dan sakit sama-sama close-up), plus satu crop latar per foto sebagai `bukan_target`. Hasil: `$OUT/` (default `ds2`), `split_manifest.csv`.
+   (foto sehat dan sakit sama-sama close-up), plus satu crop latar per foto sebagai `bukan_target`. Hasil: `ds3/` dan `ds3/split_manifest.csv` (salinannya di sini).
 3. `DS=ds3 MERGE=0 UNF=5 TAG=v5a python3 train.py` - fine-tune 5 blok terakhir, augmentasi degradasi resolusi/blur,
    dropout 0,4, early stopping dengan penalti gap train-val, temperature scaling dari val. `MERGE=1` = 3 kelas `lesi/sehat/bukan_target`.
-4. `TAG=v5a python3 eval_source.py` - recall per sumber data (cek shortcut "sumber foto = kelas").
-5. `OLD_PT=../poc/mobilenetv2_fmd4.pt python3 oldeval.py` - model lama pada crop latar.
+4. `DS=ds3 TAG=v5a python3 eval_source.py` - recall per sumber data (cek shortcut "sumber foto = kelas").
+5. `DS=ds3 OLD_PT=../poc/mobilenetv2_fmd4.pt python3 oldeval.py` - model lama pada crop latar.
 
 ## Komposisi split (crop, kelompok)
 
