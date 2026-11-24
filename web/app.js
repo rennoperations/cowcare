@@ -921,8 +921,7 @@
   $("#btnBack").onclick = function () {
     var hash = location.hash;
     navDir = "back";
-    if (hash === "#periksa" && S && S.step === 2 && S.kukuMode && !S.busy) { S.kukuMode = false; S.kuku = null; S.lepuhKuku = null; renderPeriksa(); }
-    else if (hash === "#periksa" && S && S.step > 1 && !S.busy) {
+    if (hash === "#periksa" && S && S.step > 1 && !S.busy) {
       S.step--;
       if (S.step === 2) { S.kukuSkip = false; S.kukuMode = !!S.kuku; }
       renderPeriksa();
