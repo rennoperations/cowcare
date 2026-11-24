@@ -1,5 +1,5 @@
 /* Service worker: caches the app shell and the model so CowCare works offline after the first visit. */
-var CACHE = "cowcare-v1.0.0";
+var CACHE = "cowcare-v1.0.1";
 var ASSETS = [
   "./", "index.html", "styles.css", "app.js", "scoring.js", "engine.js", "worker.js",
   "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
